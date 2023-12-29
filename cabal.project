@@ -1,0 +1,9 @@
+packages: .
+
+with-compiler: ghc-9.2.5
+tests: True
+
+source-repository-package
+    type: git
+    location: https://github.com/oxarbitrage/pasta-curves.git
+    tag: 2334d7044ebae5444516b93dcf8de49852975d00
