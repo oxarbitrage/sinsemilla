@@ -17,7 +17,7 @@ packages:
     git: https://github.com/oxarbitrage/pasta-curves
 snapshots:
 - completed:
-    sha256: b73b2b116143aea728c70e65c3239188998bac5bc3be56465813dacd74215dc5
-    size: 648424
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/1.yaml
-  original: lts-20.1
+    sha256: 5a59b2a405b3aba3c00188453be172b85893cab8ebc352b1ef58b0eae5d248a2
+    size: 650475
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/26.yaml
+  original: lts-20.26

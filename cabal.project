@@ -1,6 +1,6 @@
 packages: .
 
-with-compiler: ghc-9.2.5
+with-compiler: ghc-9.2.8
 tests: True
 
 source-repository-package

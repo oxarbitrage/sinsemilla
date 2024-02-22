@@ -59,6 +59,7 @@ test-suite sinsemilla-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      TestVectors
       Paths_sinsemilla
   hs-source-dirs:
       test
