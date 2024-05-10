@@ -2,17 +2,15 @@
 EXTENDS TLC, Naturals, Integers, Sequences, Randomization, ascii
 
 (*--algorithm sinsemilla
+
 variables
     point = [a |-> 0, b |-> 0, baseX |-> 0, baseY |-> 0];
     characters = <<>>;
     bytes = <<>>;
     bits = <<>>;
     string = "";
-
-    padded_message = <<>>;
-
-    output_hash = "";
-
+    slices = <<>>;
+    
 define
     \* Pallas base point x-coordinate
     baseX == "0x01"
@@ -55,7 +53,7 @@ begin
     OutputCharactersToString:
         skip;
     Return:
-        output_hash := string;
+        print string;
         return;
 end procedure;
 
@@ -106,6 +104,7 @@ begin
     CalculateN:
         n := Len(message_bits) \div k;
     CallPad:
+        \* Use the global `bits` as input and get slices in `slices`.
         call pad();
     CallQ:
         call q();
@@ -114,7 +113,7 @@ begin
     Loop:
         while i <= n do
             CallS:
-                bytes := padded_message[i];
+                bytes := slices[i];
                 call s();
             FirstIncompleteAddition:
                 first_incomplete_addition := IncompleteAddition(acc, point);
@@ -149,15 +148,15 @@ begin
             
             \* If the slice is full, or it's the last bit and we're finishing up
             if Len(slice) = k \/ i = Len(bits) then
-                \* Add the slice to padded_message
-                padded_message := Append(padded_message, slice);
+                \* Add the slice to `slices`
+                slices := Append(slices, slice);
                 \* Reset the slice for the next batch of bits
                 ResetSlice:
                     slice := <<>>;
                 PadLastSlice:
                     \* If it's the last slice and not full, pad it with zeros until it is k bits long
-                    while Len(padded_message[Len(padded_message)]) < k do
-                        padded_message[Len(padded_message)] := Append(padded_message[Len(padded_message)], 0);
+                    while Len(slices[Len(slices)]) < k do
+                        slices[Len(slices)] := Append(slices[Len(slices)], 0);
                     end while;
             end if;
             IncrementIndex:
@@ -221,18 +220,17 @@ begin
     SinSemillaHashCall:
         call sinsemilla_hash(<<"d", "o", "m", "a", "i", "n">>, <<"m", "e", "s", "s", "a", "g", "e">>);
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "6830df6a" /\ chksum(tla) = "7710ff0f")
-\* Label Return of procedure sinsemilla_hash at line 58 col 9 changed to Return_
-\* Label BytesToString of procedure hash_to_pallas at line 188 col 9 changed to BytesToString_
-\* Label IntToLEOSP of procedure IntToLEOSP at line 199 col 9 changed to IntToLEOSP_
-\* Procedure variable domain_bytes of procedure sinsemilla_hash at line 31 col 11 changed to domain_bytes_
-\* Procedure variable message_bits of procedure sinsemilla_hash at line 31 col 32 changed to message_bits_
-\* Procedure variable i of procedure bytes_to_bits at line 75 col 11 changed to i_
-\* Procedure variable i of procedure sinsemilla_hash_to_point at line 102 col 5 changed to i_s
-\* Parameter domain_string of procedure sinsemilla_hash at line 30 col 27 changed to domain_string_
+\* BEGIN TRANSLATION (chksum(pcal) = "de625c75" /\ chksum(tla) = "c7520297")
+\* Label Return of procedure sinsemilla_hash at line 56 col 9 changed to Return_
+\* Label BytesToString of procedure hash_to_pallas at line 187 col 9 changed to BytesToString_
+\* Label IntToLEOSP of procedure IntToLEOSP at line 198 col 9 changed to IntToLEOSP_
+\* Procedure variable domain_bytes of procedure sinsemilla_hash at line 29 col 11 changed to domain_bytes_
+\* Procedure variable message_bits of procedure sinsemilla_hash at line 29 col 32 changed to message_bits_
+\* Procedure variable i of procedure bytes_to_bits at line 73 col 11 changed to i_
+\* Procedure variable i of procedure sinsemilla_hash_to_point at line 100 col 5 changed to i_s
+\* Parameter domain_string of procedure sinsemilla_hash at line 28 col 27 changed to domain_string_
 CONSTANT defaultInitValue
-VARIABLES point, characters, bytes, bits, string, padded_message, output_hash, 
-          pc, stack
+VARIABLES point, characters, bytes, bits, string, slices, pc, stack
 
 (* define statement *)
 baseX == "0x01"
@@ -251,12 +249,11 @@ VARIABLES domain_string_, message_string, domain_bytes_, message_bits_, i_, j,
           first_incomplete_addition, second_incomplete_addition, i, slice, 
           domain_string, message_bytes
 
-vars == << point, characters, bytes, bits, string, padded_message, 
-           output_hash, pc, stack, domain_string_, message_string, 
-           domain_bytes_, message_bits_, i_, j, flatten1, flatten2, 
-           domain_bytes, message_bits, n, acc, i_s, first_incomplete_addition, 
-           second_incomplete_addition, i, slice, domain_string, message_bytes
-        >>
+vars == << point, characters, bytes, bits, string, slices, pc, stack, 
+           domain_string_, message_string, domain_bytes_, message_bits_, i_, 
+           j, flatten1, flatten2, domain_bytes, message_bits, n, acc, i_s, 
+           first_incomplete_addition, second_incomplete_addition, i, slice, 
+           domain_string, message_bytes >>
 
 Init == (* Global variables *)
         /\ point = [a |-> 0, b |-> 0, baseX |-> 0, baseY |-> 0]
@@ -264,8 +261,7 @@ Init == (* Global variables *)
         /\ bytes = <<>>
         /\ bits = <<>>
         /\ string = ""
-        /\ padded_message = <<>>
-        /\ output_hash = ""
+        /\ slices = <<>>
         (* Procedure sinsemilla_hash *)
         /\ domain_string_ = defaultInitValue
         /\ message_string = defaultInitValue
@@ -297,11 +293,10 @@ DomainToCharacters == /\ pc = "DomainToCharacters"
                       /\ TRUE
                       /\ pc' = "DomainStringToBytesCall"
                       /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                      padded_message, output_hash, stack, 
-                                      domain_string_, message_string, 
-                                      domain_bytes_, message_bits_, i_, j, 
-                                      flatten1, flatten2, domain_bytes, 
-                                      message_bits, n, acc, i_s, 
+                                      slices, stack, domain_string_, 
+                                      message_string, domain_bytes_, 
+                                      message_bits_, i_, j, flatten1, flatten2, 
+                                      domain_bytes, message_bits, n, acc, i_s, 
                                       first_incomplete_addition, 
                                       second_incomplete_addition, i, slice, 
                                       domain_string, message_bytes >>
@@ -312,8 +307,7 @@ DomainStringToBytesCall == /\ pc = "DomainStringToBytesCall"
                                             pc        |->  "DomainStringToBytesAssign" ] >>
                                         \o stack
                            /\ pc' = "FlushBytes"
-                           /\ UNCHANGED << point, bytes, bits, string, 
-                                           padded_message, output_hash, 
+                           /\ UNCHANGED << point, bytes, bits, string, slices, 
                                            domain_string_, message_string, 
                                            domain_bytes_, message_bits_, i_, j, 
                                            flatten1, flatten2, domain_bytes, 
@@ -326,8 +320,7 @@ DomainStringToBytesAssign == /\ pc = "DomainStringToBytesAssign"
                              /\ domain_bytes_' = bytes
                              /\ pc' = "MessageStringToCharactersCall"
                              /\ UNCHANGED << point, characters, bytes, bits, 
-                                             string, padded_message, 
-                                             output_hash, stack, 
+                                             string, slices, stack, 
                                              domain_string_, message_string, 
                                              message_bits_, i_, j, flatten1, 
                                              flatten2, domain_bytes, 
@@ -341,8 +334,7 @@ MessageStringToCharactersCall == /\ pc = "MessageStringToCharactersCall"
                                  /\ TRUE
                                  /\ pc' = "MessageCharactersToBytesCall"
                                  /\ UNCHANGED << point, characters, bytes, 
-                                                 bits, string, padded_message, 
-                                                 output_hash, stack, 
+                                                 bits, string, slices, stack, 
                                                  domain_string_, 
                                                  message_string, domain_bytes_, 
                                                  message_bits_, i_, j, 
@@ -361,12 +353,11 @@ MessageCharactersToBytesCall == /\ pc = "MessageCharactersToBytesCall"
                                              \o stack
                                 /\ pc' = "FlushBytes"
                                 /\ UNCHANGED << point, bytes, bits, string, 
-                                                padded_message, output_hash, 
-                                                domain_string_, message_string, 
-                                                domain_bytes_, message_bits_, 
-                                                i_, j, flatten1, flatten2, 
-                                                domain_bytes, message_bits, n, 
-                                                acc, i_s, 
+                                                slices, domain_string_, 
+                                                message_string, domain_bytes_, 
+                                                message_bits_, i_, j, flatten1, 
+                                                flatten2, domain_bytes, 
+                                                message_bits, n, acc, i_s, 
                                                 first_incomplete_addition, 
                                                 second_incomplete_addition, i, 
                                                 slice, domain_string, 
@@ -386,11 +377,11 @@ MessageBytesToBitsCall == /\ pc = "MessageBytesToBitsCall"
                           /\ flatten2' = <<>>
                           /\ pc' = "InitializeBits"
                           /\ UNCHANGED << point, characters, bytes, bits, 
-                                          string, padded_message, output_hash, 
-                                          domain_string_, message_string, 
-                                          domain_bytes_, message_bits_, 
-                                          domain_bytes, message_bits, n, acc, 
-                                          i_s, first_incomplete_addition, 
+                                          string, slices, domain_string_, 
+                                          message_string, domain_bytes_, 
+                                          message_bits_, domain_bytes, 
+                                          message_bits, n, acc, i_s, 
+                                          first_incomplete_addition, 
                                           second_incomplete_addition, i, slice, 
                                           domain_string, message_bytes >>
 
@@ -398,12 +389,12 @@ MessageBytesToBitsAssign == /\ pc = "MessageBytesToBitsAssign"
                             /\ message_bits_' = bits
                             /\ pc' = "SinsemillaHashToPoint"
                             /\ UNCHANGED << point, characters, bytes, bits, 
-                                            string, padded_message, 
-                                            output_hash, stack, domain_string_, 
-                                            message_string, domain_bytes_, i_, 
-                                            j, flatten1, flatten2, 
-                                            domain_bytes, message_bits, n, acc, 
-                                            i_s, first_incomplete_addition, 
+                                            string, slices, stack, 
+                                            domain_string_, message_string, 
+                                            domain_bytes_, i_, j, flatten1, 
+                                            flatten2, domain_bytes, 
+                                            message_bits, n, acc, i_s, 
+                                            first_incomplete_addition, 
                                             second_incomplete_addition, i, 
                                             slice, domain_string, 
                                             message_bytes >>
@@ -428,11 +419,11 @@ SinsemillaHashToPoint == /\ pc = "SinsemillaHashToPoint"
                          /\ second_incomplete_addition' = defaultInitValue
                          /\ pc' = "CalculateN"
                          /\ UNCHANGED << point, characters, bytes, bits, 
-                                         string, padded_message, output_hash, 
-                                         domain_string_, message_string, 
-                                         domain_bytes_, message_bits_, i_, j, 
-                                         flatten1, flatten2, i, slice, 
-                                         domain_string, message_bytes >>
+                                         string, slices, domain_string_, 
+                                         message_string, domain_bytes_, 
+                                         message_bits_, i_, j, flatten1, 
+                                         flatten2, i, slice, domain_string, 
+                                         message_bytes >>
 
 OutputPointToBytes == /\ pc = "OutputPointToBytes"
                       /\ stack' = << [ procedure |->  "point_to_bytes",
@@ -440,8 +431,7 @@ OutputPointToBytes == /\ pc = "OutputPointToBytes"
                                    \o stack
                       /\ pc' = "PointToBytes"
                       /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                      padded_message, output_hash, 
-                                      domain_string_, message_string, 
+                                      slices, domain_string_, message_string, 
                                       domain_bytes_, message_bits_, i_, j, 
                                       flatten1, flatten2, domain_bytes, 
                                       message_bits, n, acc, i_s, 
@@ -453,11 +443,10 @@ OutputBytesToCharacters == /\ pc = "OutputBytesToCharacters"
                            /\ TRUE
                            /\ pc' = "OutputCharactersToString"
                            /\ UNCHANGED << point, characters, bytes, bits, 
-                                           string, padded_message, output_hash, 
-                                           stack, domain_string_, 
-                                           message_string, domain_bytes_, 
-                                           message_bits_, i_, j, flatten1, 
-                                           flatten2, domain_bytes, 
+                                           string, slices, stack, 
+                                           domain_string_, message_string, 
+                                           domain_bytes_, message_bits_, i_, j, 
+                                           flatten1, flatten2, domain_bytes, 
                                            message_bits, n, acc, i_s, 
                                            first_incomplete_addition, 
                                            second_incomplete_addition, i, 
@@ -467,29 +456,27 @@ OutputCharactersToString == /\ pc = "OutputCharactersToString"
                             /\ TRUE
                             /\ pc' = "Return_"
                             /\ UNCHANGED << point, characters, bytes, bits, 
-                                            string, padded_message, 
-                                            output_hash, stack, domain_string_, 
-                                            message_string, domain_bytes_, 
-                                            message_bits_, i_, j, flatten1, 
-                                            flatten2, domain_bytes, 
-                                            message_bits, n, acc, i_s, 
-                                            first_incomplete_addition, 
+                                            string, slices, stack, 
+                                            domain_string_, message_string, 
+                                            domain_bytes_, message_bits_, i_, 
+                                            j, flatten1, flatten2, 
+                                            domain_bytes, message_bits, n, acc, 
+                                            i_s, first_incomplete_addition, 
                                             second_incomplete_addition, i, 
                                             slice, domain_string, 
                                             message_bytes >>
 
 Return_ == /\ pc = "Return_"
-           /\ output_hash' = string
+           /\ PrintT(string)
            /\ pc' = Head(stack).pc
            /\ domain_bytes_' = Head(stack).domain_bytes_
            /\ message_bits_' = Head(stack).message_bits_
            /\ domain_string_' = Head(stack).domain_string_
            /\ message_string' = Head(stack).message_string
            /\ stack' = Tail(stack)
-           /\ UNCHANGED << point, characters, bytes, bits, string, 
-                           padded_message, i_, j, flatten1, flatten2, 
-                           domain_bytes, message_bits, n, acc, i_s, 
-                           first_incomplete_addition, 
+           /\ UNCHANGED << point, characters, bytes, bits, string, slices, i_, 
+                           j, flatten1, flatten2, domain_bytes, message_bits, 
+                           n, acc, i_s, first_incomplete_addition, 
                            second_incomplete_addition, i, slice, domain_string, 
                            message_bytes >>
 
@@ -505,11 +492,10 @@ sinsemilla_hash == DomainToCharacters \/ DomainStringToBytesCall
 FlushBytes == /\ pc = "FlushBytes"
               /\ bytes' = <<>>
               /\ pc' = "StringToBytes"
-              /\ UNCHANGED << point, characters, bits, string, padded_message, 
-                              output_hash, stack, domain_string_, 
-                              message_string, domain_bytes_, message_bits_, i_, 
-                              j, flatten1, flatten2, domain_bytes, 
-                              message_bits, n, acc, i_s, 
+              /\ UNCHANGED << point, characters, bits, string, slices, stack, 
+                              domain_string_, message_string, domain_bytes_, 
+                              message_bits_, i_, j, flatten1, flatten2, 
+                              domain_bytes, message_bits, n, acc, i_s, 
                               first_incomplete_addition, 
                               second_incomplete_addition, i, slice, 
                               domain_string, message_bytes >>
@@ -518,11 +504,10 @@ StringToBytes == /\ pc = "StringToBytes"
                  /\ bytes' = [c \in 1..Len(characters) |-> Ord(characters[c])]
                  /\ pc' = Head(stack).pc
                  /\ stack' = Tail(stack)
-                 /\ UNCHANGED << point, characters, bits, string, 
-                                 padded_message, output_hash, domain_string_, 
-                                 message_string, domain_bytes_, message_bits_, 
-                                 i_, j, flatten1, flatten2, domain_bytes, 
-                                 message_bits, n, acc, i_s, 
+                 /\ UNCHANGED << point, characters, bits, string, slices, 
+                                 domain_string_, message_string, domain_bytes_, 
+                                 message_bits_, i_, j, flatten1, flatten2, 
+                                 domain_bytes, message_bits, n, acc, i_s, 
                                  first_incomplete_addition, 
                                  second_incomplete_addition, i, slice, 
                                  domain_string, message_bytes >>
@@ -532,9 +517,8 @@ characters_to_bytes == FlushBytes \/ StringToBytes
 InitializeBits == /\ pc = "InitializeBits"
                   /\ bits' = <<>>
                   /\ pc' = "BytesToBitSequence"
-                  /\ UNCHANGED << point, characters, bytes, string, 
-                                  padded_message, output_hash, stack, 
-                                  domain_string_, message_string, 
+                  /\ UNCHANGED << point, characters, bytes, string, slices, 
+                                  stack, domain_string_, message_string, 
                                   domain_bytes_, message_bits_, i_, j, 
                                   flatten1, flatten2, domain_bytes, 
                                   message_bits, n, acc, i_s, 
@@ -545,9 +529,8 @@ InitializeBits == /\ pc = "InitializeBits"
 BytesToBitSequence == /\ pc = "BytesToBitSequence"
                       /\ bits' = [byte \in 1..Len(bytes) |-> ByteToBitSequence(bytes[byte])]
                       /\ pc' = "Flatten1"
-                      /\ UNCHANGED << point, characters, bytes, string, 
-                                      padded_message, output_hash, stack, 
-                                      domain_string_, message_string, 
+                      /\ UNCHANGED << point, characters, bytes, string, slices, 
+                                      stack, domain_string_, message_string, 
                                       domain_bytes_, message_bits_, i_, j, 
                                       flatten1, flatten2, domain_bytes, 
                                       message_bits, n, acc, i_s, 
@@ -566,11 +549,10 @@ Flatten1 == /\ pc = "Flatten1"
                        /\ flatten1' = Head(stack).flatten1
                        /\ flatten2' = Head(stack).flatten2
                        /\ stack' = Tail(stack)
-            /\ UNCHANGED << point, characters, bytes, string, padded_message, 
-                            output_hash, domain_string_, message_string, 
-                            domain_bytes_, message_bits_, domain_bytes, 
-                            message_bits, n, acc, i_s, 
-                            first_incomplete_addition, 
+            /\ UNCHANGED << point, characters, bytes, string, slices, 
+                            domain_string_, message_string, domain_bytes_, 
+                            message_bits_, domain_bytes, message_bits, n, acc, 
+                            i_s, first_incomplete_addition, 
                             second_incomplete_addition, i, slice, 
                             domain_string, message_bytes >>
 
@@ -585,10 +567,10 @@ Flatten2 == /\ pc = "Flatten2"
                        /\ i_' = i_ + 1
                        /\ pc' = "Flatten1"
                        /\ UNCHANGED << flatten1, flatten2 >>
-            /\ UNCHANGED << point, characters, bytes, bits, string, 
-                            padded_message, output_hash, stack, domain_string_, 
-                            message_string, domain_bytes_, message_bits_, 
-                            domain_bytes, message_bits, n, acc, i_s, 
+            /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                            stack, domain_string_, message_string, 
+                            domain_bytes_, message_bits_, domain_bytes, 
+                            message_bits, n, acc, i_s, 
                             first_incomplete_addition, 
                             second_incomplete_addition, i, slice, 
                             domain_string, message_bytes >>
@@ -599,11 +581,10 @@ bytes_to_bits == InitializeBits \/ BytesToBitSequence \/ Flatten1
 CalculateN == /\ pc = "CalculateN"
               /\ n' = (Len(message_bits) \div k)
               /\ pc' = "CallPad"
-              /\ UNCHANGED << point, characters, bytes, bits, string, 
-                              padded_message, output_hash, stack, 
-                              domain_string_, message_string, domain_bytes_, 
-                              message_bits_, i_, j, flatten1, flatten2, 
-                              domain_bytes, message_bits, acc, i_s, 
+              /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                              stack, domain_string_, message_string, 
+                              domain_bytes_, message_bits_, i_, j, flatten1, 
+                              flatten2, domain_bytes, message_bits, acc, i_s, 
                               first_incomplete_addition, 
                               second_incomplete_addition, i, slice, 
                               domain_string, message_bytes >>
@@ -617,11 +598,11 @@ CallPad == /\ pc = "CallPad"
            /\ i' = 1
            /\ slice' = <<>>
            /\ pc' = "Pad"
-           /\ UNCHANGED << point, characters, bytes, bits, string, 
-                           padded_message, output_hash, domain_string_, 
-                           message_string, domain_bytes_, message_bits_, i_, j, 
-                           flatten1, flatten2, domain_bytes, message_bits, n, 
-                           acc, i_s, first_incomplete_addition, 
+           /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                           domain_string_, message_string, domain_bytes_, 
+                           message_bits_, i_, j, flatten1, flatten2, 
+                           domain_bytes, message_bits, n, acc, i_s, 
+                           first_incomplete_addition, 
                            second_incomplete_addition, domain_string, 
                            message_bytes >>
 
@@ -630,22 +611,20 @@ CallQ == /\ pc = "CallQ"
                           pc        |->  "InitializeAcc" ] >>
                       \o stack
          /\ pc' = "Q"
-         /\ UNCHANGED << point, characters, bytes, bits, string, 
-                         padded_message, output_hash, domain_string_, 
-                         message_string, domain_bytes_, message_bits_, i_, j, 
-                         flatten1, flatten2, domain_bytes, message_bits, n, 
-                         acc, i_s, first_incomplete_addition, 
-                         second_incomplete_addition, i, slice, domain_string, 
-                         message_bytes >>
+         /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                         domain_string_, message_string, domain_bytes_, 
+                         message_bits_, i_, j, flatten1, flatten2, 
+                         domain_bytes, message_bits, n, acc, i_s, 
+                         first_incomplete_addition, second_incomplete_addition, 
+                         i, slice, domain_string, message_bytes >>
 
 InitializeAcc == /\ pc = "InitializeAcc"
                  /\ acc' = point
                  /\ pc' = "Loop"
                  /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                 padded_message, output_hash, stack, 
-                                 domain_string_, message_string, domain_bytes_, 
-                                 message_bits_, i_, j, flatten1, flatten2, 
-                                 domain_bytes, message_bits, n, i_s, 
+                                 slices, stack, domain_string_, message_string, 
+                                 domain_bytes_, message_bits_, i_, j, flatten1, 
+                                 flatten2, domain_bytes, message_bits, n, i_s, 
                                  first_incomplete_addition, 
                                  second_incomplete_addition, i, slice, 
                                  domain_string, message_bytes >>
@@ -654,23 +633,23 @@ Loop == /\ pc = "Loop"
         /\ IF i_s <= n
               THEN /\ pc' = "CallS"
               ELSE /\ pc' = "Results"
-        /\ UNCHANGED << point, characters, bytes, bits, string, padded_message, 
-                        output_hash, stack, domain_string_, message_string, 
-                        domain_bytes_, message_bits_, i_, j, flatten1, 
-                        flatten2, domain_bytes, message_bits, n, acc, i_s, 
-                        first_incomplete_addition, second_incomplete_addition, 
-                        i, slice, domain_string, message_bytes >>
+        /\ UNCHANGED << point, characters, bytes, bits, string, slices, stack, 
+                        domain_string_, message_string, domain_bytes_, 
+                        message_bits_, i_, j, flatten1, flatten2, domain_bytes, 
+                        message_bits, n, acc, i_s, first_incomplete_addition, 
+                        second_incomplete_addition, i, slice, domain_string, 
+                        message_bytes >>
 
 CallS == /\ pc = "CallS"
-         /\ bytes' = padded_message[i_s]
+         /\ bytes' = slices[i_s]
          /\ stack' = << [ procedure |->  "s",
                           pc        |->  "FirstIncompleteAddition" ] >>
                       \o stack
          /\ pc' = "CallI2LEOSP"
-         /\ UNCHANGED << point, characters, bits, string, padded_message, 
-                         output_hash, domain_string_, message_string, 
-                         domain_bytes_, message_bits_, i_, j, flatten1, 
-                         flatten2, domain_bytes, message_bits, n, acc, i_s, 
+         /\ UNCHANGED << point, characters, bits, string, slices, 
+                         domain_string_, message_string, domain_bytes_, 
+                         message_bits_, i_, j, flatten1, flatten2, 
+                         domain_bytes, message_bits, n, acc, i_s, 
                          first_incomplete_addition, second_incomplete_addition, 
                          i, slice, domain_string, message_bytes >>
 
@@ -678,11 +657,10 @@ FirstIncompleteAddition == /\ pc = "FirstIncompleteAddition"
                            /\ first_incomplete_addition' = IncompleteAddition(acc, point)
                            /\ pc' = "SecondIncompleteAddition"
                            /\ UNCHANGED << point, characters, bytes, bits, 
-                                           string, padded_message, output_hash, 
-                                           stack, domain_string_, 
-                                           message_string, domain_bytes_, 
-                                           message_bits_, i_, j, flatten1, 
-                                           flatten2, domain_bytes, 
+                                           string, slices, stack, 
+                                           domain_string_, message_string, 
+                                           domain_bytes_, message_bits_, i_, j, 
+                                           flatten1, flatten2, domain_bytes, 
                                            message_bits, n, acc, i_s, 
                                            second_incomplete_addition, i, 
                                            slice, domain_string, message_bytes >>
@@ -692,12 +670,11 @@ SecondIncompleteAddition == /\ pc = "SecondIncompleteAddition"
                             /\ acc' = second_incomplete_addition'
                             /\ pc' = "Inc"
                             /\ UNCHANGED << point, characters, bytes, bits, 
-                                            string, padded_message, 
-                                            output_hash, stack, domain_string_, 
-                                            message_string, domain_bytes_, 
-                                            message_bits_, i_, j, flatten1, 
-                                            flatten2, domain_bytes, 
-                                            message_bits, n, i_s, 
+                                            string, slices, stack, 
+                                            domain_string_, message_string, 
+                                            domain_bytes_, message_bits_, i_, 
+                                            j, flatten1, flatten2, 
+                                            domain_bytes, message_bits, n, i_s, 
                                             first_incomplete_addition, i, 
                                             slice, domain_string, 
                                             message_bytes >>
@@ -705,20 +682,20 @@ SecondIncompleteAddition == /\ pc = "SecondIncompleteAddition"
 Inc == /\ pc = "Inc"
        /\ i_s' = i_s + 1
        /\ pc' = "Loop"
-       /\ UNCHANGED << point, characters, bytes, bits, string, padded_message, 
-                       output_hash, stack, domain_string_, message_string, 
-                       domain_bytes_, message_bits_, i_, j, flatten1, flatten2, 
-                       domain_bytes, message_bits, n, acc, 
-                       first_incomplete_addition, second_incomplete_addition, 
-                       i, slice, domain_string, message_bytes >>
+       /\ UNCHANGED << point, characters, bytes, bits, string, slices, stack, 
+                       domain_string_, message_string, domain_bytes_, 
+                       message_bits_, i_, j, flatten1, flatten2, domain_bytes, 
+                       message_bits, n, acc, first_incomplete_addition, 
+                       second_incomplete_addition, i, slice, domain_string, 
+                       message_bytes >>
 
 Results == /\ pc = "Results"
            /\ point' = second_incomplete_addition
            /\ pc' = "CleanIndex"
-           /\ UNCHANGED << characters, bytes, bits, string, padded_message, 
-                           output_hash, stack, domain_string_, message_string, 
-                           domain_bytes_, message_bits_, i_, j, flatten1, 
-                           flatten2, domain_bytes, message_bits, n, acc, i_s, 
+           /\ UNCHANGED << characters, bytes, bits, string, slices, stack, 
+                           domain_string_, message_string, domain_bytes_, 
+                           message_bits_, i_, j, flatten1, flatten2, 
+                           domain_bytes, message_bits, n, acc, i_s, 
                            first_incomplete_addition, 
                            second_incomplete_addition, i, slice, domain_string, 
                            message_bytes >>
@@ -726,11 +703,10 @@ Results == /\ pc = "Results"
 CleanIndex == /\ pc = "CleanIndex"
               /\ i_s' = 1
               /\ pc' = "Return"
-              /\ UNCHANGED << point, characters, bytes, bits, string, 
-                              padded_message, output_hash, stack, 
-                              domain_string_, message_string, domain_bytes_, 
-                              message_bits_, i_, j, flatten1, flatten2, 
-                              domain_bytes, message_bits, n, acc, 
+              /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                              stack, domain_string_, message_string, 
+                              domain_bytes_, message_bits_, i_, j, flatten1, 
+                              flatten2, domain_bytes, message_bits, n, acc, 
                               first_incomplete_addition, 
                               second_incomplete_addition, i, slice, 
                               domain_string, message_bytes >>
@@ -745,11 +721,10 @@ Return == /\ pc = "Return"
           /\ domain_bytes' = Head(stack).domain_bytes
           /\ message_bits' = Head(stack).message_bits
           /\ stack' = Tail(stack)
-          /\ UNCHANGED << point, characters, bytes, bits, string, 
-                          padded_message, output_hash, domain_string_, 
-                          message_string, domain_bytes_, message_bits_, i_, j, 
-                          flatten1, flatten2, i, slice, domain_string, 
-                          message_bytes >>
+          /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                          domain_string_, message_string, domain_bytes_, 
+                          message_bits_, i_, j, flatten1, flatten2, i, slice, 
+                          domain_string, message_bytes >>
 
 sinsemilla_hash_to_point == CalculateN \/ CallPad \/ CallQ \/ InitializeAcc
                                \/ Loop \/ CallS \/ FirstIncompleteAddition
@@ -763,20 +738,20 @@ Pad == /\ pc = "Pad"
                         ELSE /\ TRUE
                              /\ slice' = slice
                   /\ IF Len(slice') = k \/ i = Len(bits)
-                        THEN /\ padded_message' = Append(padded_message, slice')
+                        THEN /\ slices' = Append(slices, slice')
                              /\ pc' = "ResetSlice"
                         ELSE /\ pc' = "IncrementIndex"
-                             /\ UNCHANGED padded_message
+                             /\ UNCHANGED slices
                   /\ UNCHANGED << stack, i >>
              ELSE /\ pc' = Head(stack).pc
                   /\ i' = Head(stack).i
                   /\ slice' = Head(stack).slice
                   /\ stack' = Tail(stack)
-                  /\ UNCHANGED padded_message
-       /\ UNCHANGED << point, characters, bytes, bits, string, output_hash, 
-                       domain_string_, message_string, domain_bytes_, 
-                       message_bits_, i_, j, flatten1, flatten2, domain_bytes, 
-                       message_bits, n, acc, i_s, first_incomplete_addition, 
+                  /\ UNCHANGED slices
+       /\ UNCHANGED << point, characters, bytes, bits, string, domain_string_, 
+                       message_string, domain_bytes_, message_bits_, i_, j, 
+                       flatten1, flatten2, domain_bytes, message_bits, n, acc, 
+                       i_s, first_incomplete_addition, 
                        second_incomplete_addition, domain_string, 
                        message_bytes >>
 
@@ -784,10 +759,9 @@ IncrementIndex == /\ pc = "IncrementIndex"
                   /\ i' = i + 1
                   /\ pc' = "Pad"
                   /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                  padded_message, output_hash, stack, 
-                                  domain_string_, message_string, 
-                                  domain_bytes_, message_bits_, i_, j, 
-                                  flatten1, flatten2, domain_bytes, 
+                                  slices, stack, domain_string_, 
+                                  message_string, domain_bytes_, message_bits_, 
+                                  i_, j, flatten1, flatten2, domain_bytes, 
                                   message_bits, n, acc, i_s, 
                                   first_incomplete_addition, 
                                   second_incomplete_addition, slice, 
@@ -796,26 +770,24 @@ IncrementIndex == /\ pc = "IncrementIndex"
 ResetSlice == /\ pc = "ResetSlice"
               /\ slice' = <<>>
               /\ pc' = "PadLastSlice"
-              /\ UNCHANGED << point, characters, bytes, bits, string, 
-                              padded_message, output_hash, stack, 
-                              domain_string_, message_string, domain_bytes_, 
-                              message_bits_, i_, j, flatten1, flatten2, 
-                              domain_bytes, message_bits, n, acc, i_s, 
-                              first_incomplete_addition, 
+              /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                              stack, domain_string_, message_string, 
+                              domain_bytes_, message_bits_, i_, j, flatten1, 
+                              flatten2, domain_bytes, message_bits, n, acc, 
+                              i_s, first_incomplete_addition, 
                               second_incomplete_addition, i, domain_string, 
                               message_bytes >>
 
 PadLastSlice == /\ pc = "PadLastSlice"
-                /\ IF Len(padded_message[Len(padded_message)]) < k
-                      THEN /\ padded_message' = [padded_message EXCEPT ![Len(padded_message)] = Append(padded_message[Len(padded_message)], 0)]
+                /\ IF Len(slices[Len(slices)]) < k
+                      THEN /\ slices' = [slices EXCEPT ![Len(slices)] = Append(slices[Len(slices)], 0)]
                            /\ pc' = "PadLastSlice"
                       ELSE /\ pc' = "IncrementIndex"
-                           /\ UNCHANGED padded_message
-                /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                output_hash, stack, domain_string_, 
-                                message_string, domain_bytes_, message_bits_, 
-                                i_, j, flatten1, flatten2, domain_bytes, 
-                                message_bits, n, acc, i_s, 
+                           /\ UNCHANGED slices
+                /\ UNCHANGED << point, characters, bytes, bits, string, stack, 
+                                domain_string_, message_string, domain_bytes_, 
+                                message_bits_, i_, j, flatten1, flatten2, 
+                                domain_bytes, message_bits, n, acc, i_s, 
                                 first_incomplete_addition, 
                                 second_incomplete_addition, i, slice, 
                                 domain_string, message_bytes >>
@@ -831,12 +803,11 @@ Q == /\ pc = "Q"
                          message_bytes |->  message_bytes ] >>
                      \o Tail(stack)
      /\ pc' = "BytesToString_"
-     /\ UNCHANGED << point, characters, bytes, bits, string, padded_message, 
-                     output_hash, domain_string_, message_string, 
-                     domain_bytes_, message_bits_, i_, j, flatten1, flatten2, 
-                     domain_bytes, message_bits, n, acc, i_s, 
-                     first_incomplete_addition, second_incomplete_addition, i, 
-                     slice >>
+     /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                     domain_string_, message_string, domain_bytes_, 
+                     message_bits_, i_, j, flatten1, flatten2, domain_bytes, 
+                     message_bits, n, acc, i_s, first_incomplete_addition, 
+                     second_incomplete_addition, i, slice >>
 
 q == Q
 
@@ -845,11 +816,10 @@ CallI2LEOSP == /\ pc = "CallI2LEOSP"
                                 pc        |->  "S" ] >>
                             \o stack
                /\ pc' = "IntToLEOSP_"
-               /\ UNCHANGED << point, characters, bytes, bits, string, 
-                               padded_message, output_hash, domain_string_, 
-                               message_string, domain_bytes_, message_bits_, 
-                               i_, j, flatten1, flatten2, domain_bytes, 
-                               message_bits, n, acc, i_s, 
+               /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                               domain_string_, message_string, domain_bytes_, 
+                               message_bits_, i_, j, flatten1, flatten2, 
+                               domain_bytes, message_bits, n, acc, i_s, 
                                first_incomplete_addition, 
                                second_incomplete_addition, i, slice, 
                                domain_string, message_bytes >>
@@ -863,12 +833,11 @@ S == /\ pc = "S"
                          message_bytes |->  message_bytes ] >>
                      \o Tail(stack)
      /\ pc' = "BytesToString_"
-     /\ UNCHANGED << point, characters, bytes, bits, string, padded_message, 
-                     output_hash, domain_string_, message_string, 
-                     domain_bytes_, message_bits_, i_, j, flatten1, flatten2, 
-                     domain_bytes, message_bits, n, acc, i_s, 
-                     first_incomplete_addition, second_incomplete_addition, i, 
-                     slice >>
+     /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                     domain_string_, message_string, domain_bytes_, 
+                     message_bits_, i_, j, flatten1, flatten2, domain_bytes, 
+                     message_bits, n, acc, i_s, first_incomplete_addition, 
+                     second_incomplete_addition, i, slice >>
 
 s == CallI2LEOSP \/ S
 
@@ -878,10 +847,10 @@ BytesToString_ == /\ pc = "BytesToString_"
                                    pc        |->  "HashToPallas" ] >>
                                \o stack
                   /\ pc' = "BytesToString"
-                  /\ UNCHANGED << point, characters, bits, string, 
-                                  padded_message, output_hash, domain_string_, 
-                                  message_string, domain_bytes_, message_bits_, 
-                                  i_, j, flatten1, flatten2, domain_bytes, 
+                  /\ UNCHANGED << point, characters, bits, string, slices, 
+                                  domain_string_, message_string, 
+                                  domain_bytes_, message_bits_, i_, j, 
+                                  flatten1, flatten2, domain_bytes, 
                                   message_bits, n, acc, i_s, 
                                   first_incomplete_addition, 
                                   second_incomplete_addition, i, slice, 
@@ -893,11 +862,10 @@ HashToPallas == /\ pc = "HashToPallas"
                 /\ domain_string' = Head(stack).domain_string
                 /\ message_bytes' = Head(stack).message_bytes
                 /\ stack' = Tail(stack)
-                /\ UNCHANGED << characters, bytes, bits, string, 
-                                padded_message, output_hash, domain_string_, 
-                                message_string, domain_bytes_, message_bits_, 
-                                i_, j, flatten1, flatten2, domain_bytes, 
-                                message_bits, n, acc, i_s, 
+                /\ UNCHANGED << characters, bytes, bits, string, slices, 
+                                domain_string_, message_string, domain_bytes_, 
+                                message_bits_, i_, j, flatten1, flatten2, 
+                                domain_bytes, message_bits, n, acc, i_s, 
                                 first_incomplete_addition, 
                                 second_incomplete_addition, i, slice >>
 
@@ -907,11 +875,10 @@ IntToLEOSP_ == /\ pc = "IntToLEOSP_"
                /\ TRUE
                /\ pc' = Head(stack).pc
                /\ stack' = Tail(stack)
-               /\ UNCHANGED << point, characters, bytes, bits, string, 
-                               padded_message, output_hash, domain_string_, 
-                               message_string, domain_bytes_, message_bits_, 
-                               i_, j, flatten1, flatten2, domain_bytes, 
-                               message_bits, n, acc, i_s, 
+               /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                               domain_string_, message_string, domain_bytes_, 
+                               message_bits_, i_, j, flatten1, flatten2, 
+                               domain_bytes, message_bits, n, acc, i_s, 
                                first_incomplete_addition, 
                                second_incomplete_addition, i, slice, 
                                domain_string, message_bytes >>
@@ -922,11 +889,10 @@ BytesToString == /\ pc = "BytesToString"
                  /\ string' = [b \in 1..Len(bytes) |-> Chr(bytes[b])]
                  /\ pc' = Head(stack).pc
                  /\ stack' = Tail(stack)
-                 /\ UNCHANGED << point, characters, bytes, bits, 
-                                 padded_message, output_hash, domain_string_, 
-                                 message_string, domain_bytes_, message_bits_, 
-                                 i_, j, flatten1, flatten2, domain_bytes, 
-                                 message_bits, n, acc, i_s, 
+                 /\ UNCHANGED << point, characters, bytes, bits, slices, 
+                                 domain_string_, message_string, domain_bytes_, 
+                                 message_bits_, i_, j, flatten1, flatten2, 
+                                 domain_bytes, message_bits, n, acc, i_s, 
                                  first_incomplete_addition, 
                                  second_incomplete_addition, i, slice, 
                                  domain_string, message_bytes >>
@@ -937,11 +903,10 @@ PointToBytes == /\ pc = "PointToBytes"
                 /\ PrintT(point)
                 /\ pc' = Head(stack).pc
                 /\ stack' = Tail(stack)
-                /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                padded_message, output_hash, domain_string_, 
-                                message_string, domain_bytes_, message_bits_, 
-                                i_, j, flatten1, flatten2, domain_bytes, 
-                                message_bits, n, acc, i_s, 
+                /\ UNCHANGED << point, characters, bytes, bits, string, slices, 
+                                domain_string_, message_string, domain_bytes_, 
+                                message_bits_, i_, j, flatten1, flatten2, 
+                                domain_bytes, message_bits, n, acc, i_s, 
                                 first_incomplete_addition, 
                                 second_incomplete_addition, i, slice, 
                                 domain_string, message_bytes >>
@@ -962,9 +927,8 @@ SinSemillaHashCall == /\ pc = "SinSemillaHashCall"
                       /\ message_bits_' = <<>>
                       /\ pc' = "DomainToCharacters"
                       /\ UNCHANGED << point, characters, bytes, bits, string, 
-                                      padded_message, output_hash, i_, j, 
-                                      flatten1, flatten2, domain_bytes, 
-                                      message_bits, n, acc, i_s, 
+                                      slices, i_, j, flatten1, flatten2, 
+                                      domain_bytes, message_bits, n, acc, i_s, 
                                       first_incomplete_addition, 
                                       second_incomplete_addition, i, slice, 
                                       domain_string, message_bytes >>
