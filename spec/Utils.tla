@@ -1,8 +1,6 @@
--------------------------------- MODULE ascii -------------------------------
-
-\*LOCAL INSTANCE Sequences
-\*LOCAL INSTANCE FiniteSets
-\*LOCAL INSTANCE TLC
+-------------------------------- MODULE Utils -------------------------------
+LOCAL INSTANCE Sequences
+LOCAL INSTANCE Naturals
 
 \* A function that returns the ASCII value of an "allowed" character
 Ord(c) ==
@@ -131,5 +129,22 @@ ByteToBitSequence(b) ==
         [] b = 121 -> <<0, 1, 1, 1, 1, 0, 0, 1>>  \* 'y'
         [] b = 122 -> <<0, 1, 1, 1, 1, 0, 1, 0>>  \* 'z'
         [] OTHER -> <<0, 0, 0, 0, 0, 0, 0, 0>>  \* Default to 0 for unspecified bytes
+
+\* A flatten operator copied from https://github.com/tlaplus/CommunityModules/blob/master/modules/SequencesExt.tla
+FlattenSeq(seqs) ==
+(**************************************************************************)
+(* A sequence of all elements from all sequences in the sequence  seqs  . *)
+(*                                                                        *)
+(* Examples:                                                              *)
+(*                                                                        *)
+(*  FlattenSeq(<< <<1,2>>, <<1>> >>) = << 1, 2, 1 >>                      *)
+(*  FlattenSeq(<< <<"a">>, <<"b">> >>) = <<"a", "b">>                     *)
+(*  FlattenSeq(<< "a", "b" >>) = "ab"                                     *)
+(**************************************************************************)
+IF Len(seqs) = 0 THEN seqs ELSE
+    \* Not via  FoldSeq(\o, <<>>, seqs)  here to support strings with TLC.
+    LET flatten[i \in 1..Len(seqs)] ==
+        IF i = 1 THEN seqs[i] ELSE flatten[i-1] \o seqs[i]
+    IN flatten[Len(seqs)]
 
 =============================================================================
