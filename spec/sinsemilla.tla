@@ -98,14 +98,11 @@ begin
             CallS:
                 bits := slices[i];
                 call s();
-            IncompleteAdditions:
+            DoIncompleteAddition:
                 acc := IncompleteAddition(IncompleteAddition(acc, point), acc);
-            Inc:
                 i := i + 1;
         end while;
         point := acc;
-        print point;
-        i := 1;
     ReturnFromSinsemillaHashToPoint:
         return;
 end procedure;
@@ -125,15 +122,9 @@ begin
                 i := i+k;
             end if;
         end while;
-
-        if Len(slices[Len(slices)]) < k then
-            PadLastSlice:
-                while Len(slices[Len(slices)]) < k do
-                    slices[Len(slices)] := Append(slices[Len(slices)], 0);
-                end while;
-        end if;
-    ReturnFromPad:
-        return;
+        PadLastSlice:
+            slices[Len(slices)] := [index \in 1..k |-> IF index <= Len(slices[Len(slices)]) THEN slices[Len(slices)][index] ELSE 0];
+            return;
 end procedure;
 
 \* Produce a Pallas point with the bytes stored, these bytes are set in the caller as domain bytes.
@@ -206,11 +197,11 @@ begin
     SinSemillaHashCall:
         call sinsemilla_hash(<<"d", "o", "m", "a", "i", "n">>, <<"m", "e", "s", "s", "a", "g", "e">>);
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "6aeacd4a" /\ chksum(tla) = "2d422ec1")
+\* BEGIN TRANSLATION (chksum(pcal) = "4cf60120" /\ chksum(tla) = "b6496359")
 \* Label Return of procedure sinsemilla_hash at line 55 col 9 changed to Return_
-\* Label Return of procedure hash_to_pallas at line 167 col 9 changed to Return_h
+\* Label Return of procedure hash_to_pallas at line 158 col 9 changed to Return_h
 \* Procedure variable i of procedure sinsemilla_hash_to_point at line 87 col 5 changed to i_
-\* Procedure variable i of procedure pad at line 116 col 5 changed to i_p
+\* Procedure variable i of procedure pad at line 113 col 5 changed to i_p
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, bits, slices, pc, stack
 
@@ -454,20 +445,18 @@ InitializeAcc == /\ pc = "InitializeAcc"
 Loop == /\ pc = "Loop"
         /\ IF i_ <= n
               THEN /\ pc' = "CallS"
-                   /\ UNCHANGED << point, i_ >>
+                   /\ point' = point
               ELSE /\ point' = acc
-                   /\ PrintT(point')
-                   /\ i_' = 1
                    /\ pc' = "ReturnFromSinsemillaHashToPoint"
         /\ UNCHANGED << characters, bytes, bits, slices, stack, domain, 
-                        message, domain_bytes, n, acc, i_p, separator, 
+                        message, domain_bytes, n, acc, i_, i_p, separator, 
                         message_bytes, a_coordinate, b_coordinate, byte1, 
                         byte2, internal_bits, i >>
 
 CallS == /\ pc = "CallS"
          /\ bits' = slices[i_]
          /\ stack' = << [ procedure |->  "s",
-                          pc        |->  "IncompleteAdditions" ] >>
+                          pc        |->  "DoIncompleteAddition" ] >>
                       \o stack
          /\ pc' = "CallI2LEOSP"
          /\ UNCHANGED << point, characters, bytes, slices, domain, message, 
@@ -475,22 +464,15 @@ CallS == /\ pc = "CallS"
                          message_bytes, a_coordinate, b_coordinate, byte1, 
                          byte2, internal_bits, i >>
 
-IncompleteAdditions == /\ pc = "IncompleteAdditions"
-                       /\ acc' = IncompleteAddition(IncompleteAddition(acc, point), acc)
-                       /\ pc' = "Inc"
-                       /\ UNCHANGED << point, characters, bytes, bits, slices, 
-                                       stack, domain, message, domain_bytes, n, 
-                                       i_, i_p, separator, message_bytes, 
-                                       a_coordinate, b_coordinate, byte1, 
-                                       byte2, internal_bits, i >>
-
-Inc == /\ pc = "Inc"
-       /\ i_' = i_ + 1
-       /\ pc' = "Loop"
-       /\ UNCHANGED << point, characters, bytes, bits, slices, stack, domain, 
-                       message, domain_bytes, n, acc, i_p, separator, 
-                       message_bytes, a_coordinate, b_coordinate, byte1, byte2, 
-                       internal_bits, i >>
+DoIncompleteAddition == /\ pc = "DoIncompleteAddition"
+                        /\ acc' = IncompleteAddition(IncompleteAddition(acc, point), acc)
+                        /\ i_' = i_ + 1
+                        /\ pc' = "Loop"
+                        /\ UNCHANGED << point, characters, bytes, bits, slices, 
+                                        stack, domain, message, domain_bytes, 
+                                        n, i_p, separator, message_bytes, 
+                                        a_coordinate, b_coordinate, byte1, 
+                                        byte2, internal_bits, i >>
 
 ReturnFromSinsemillaHashToPoint == /\ pc = "ReturnFromSinsemillaHashToPoint"
                                    /\ pc' = Head(stack).pc
@@ -507,7 +489,7 @@ ReturnFromSinsemillaHashToPoint == /\ pc = "ReturnFromSinsemillaHashToPoint"
                                                    i >>
 
 sinsemilla_hash_to_point == CallPad \/ CallQ \/ InitializeAcc \/ Loop
-                               \/ CallS \/ IncompleteAdditions \/ Inc
+                               \/ CallS \/ DoIncompleteAddition
                                \/ ReturnFromSinsemillaHashToPoint
 
 GetSlices == /\ pc = "GetSlices"
@@ -518,9 +500,7 @@ GetSlices == /\ pc = "GetSlices"
                               ELSE /\ slices' = Append(slices, SubSeq(bits, i_p, i_p+k))
                                    /\ i_p' = i_p+k
                         /\ pc' = "GetSlices"
-                   ELSE /\ IF Len(slices[Len(slices)]) < k
-                              THEN /\ pc' = "PadLastSlice"
-                              ELSE /\ pc' = "ReturnFromPad"
+                   ELSE /\ pc' = "PadLastSlice"
                         /\ UNCHANGED << slices, i_p >>
              /\ UNCHANGED << point, characters, bytes, bits, stack, domain, 
                              message, domain_bytes, n, acc, i_, separator, 
@@ -528,26 +508,16 @@ GetSlices == /\ pc = "GetSlices"
                              byte2, internal_bits, i >>
 
 PadLastSlice == /\ pc = "PadLastSlice"
-                /\ IF Len(slices[Len(slices)]) < k
-                      THEN /\ slices' = [slices EXCEPT ![Len(slices)] = Append(slices[Len(slices)], 0)]
-                           /\ pc' = "PadLastSlice"
-                      ELSE /\ pc' = "ReturnFromPad"
-                           /\ UNCHANGED slices
-                /\ UNCHANGED << point, characters, bytes, bits, stack, domain, 
-                                message, domain_bytes, n, acc, i_, i_p, 
-                                separator, message_bytes, a_coordinate, 
-                                b_coordinate, byte1, byte2, internal_bits, i >>
+                /\ slices' = [slices EXCEPT ![Len(slices)] = [index \in 1..k |-> IF index <= Len(slices[Len(slices)]) THEN slices[Len(slices)][index] ELSE 0]]
+                /\ pc' = Head(stack).pc
+                /\ i_p' = Head(stack).i_p
+                /\ stack' = Tail(stack)
+                /\ UNCHANGED << point, characters, bytes, bits, domain, 
+                                message, domain_bytes, n, acc, i_, separator, 
+                                message_bytes, a_coordinate, b_coordinate, 
+                                byte1, byte2, internal_bits, i >>
 
-ReturnFromPad == /\ pc = "ReturnFromPad"
-                 /\ pc' = Head(stack).pc
-                 /\ i_p' = Head(stack).i_p
-                 /\ stack' = Tail(stack)
-                 /\ UNCHANGED << point, characters, bytes, bits, slices, 
-                                 domain, message, domain_bytes, n, acc, i_, 
-                                 separator, message_bytes, a_coordinate, 
-                                 b_coordinate, byte1, byte2, internal_bits, i >>
-
-pad == GetSlices \/ PadLastSlice \/ ReturnFromPad
+pad == GetSlices \/ PadLastSlice
 
 Q == /\ pc = "Q"
      /\ /\ message_bytes' = bytes
