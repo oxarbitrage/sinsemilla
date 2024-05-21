@@ -3,8 +3,10 @@ EXTENDS TLC, Naturals, Integers, Sequences, Utils, Randomization
 
 (*--algorithm sinsemilla
 
+\* GLOBAL VARIABLES
+
 variables
-    \* Store any point on the Pallas curve at any program state.  A point is just a structure of coordinates a and b.
+    \* Store any point on the Pallas curve at any program state. A point is a structure with coordinates `a` and `b`.
     point = [a |-> 0, b |-> 0];
     \* Store any sequence of characters at any program state.
     characters = <<>>;
@@ -15,6 +17,8 @@ variables
     \* Store any sequence of slices at any program state.
     slices = <<>>;
 
+\* DEFINED OPERATORS:
+
 define
     \* The number of bits in a chunk
     k == 10
@@ -22,10 +26,12 @@ define
     \* TODO: Consider x and y cases here?
     IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
     \* The domain separator string for the Q point: `z.cash.SinsemillaQ`
-    sinsemilla_q_separator == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
+    SinsemillaQ == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
     \* The domain separator string for the S point: `z.cash.SinsemillaS`
-    sinsemilla_s_separator == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
+    SinsemillaS == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
 end define;
+
+\* MACROS:
 
 \* Convert a sequence of characters to a sequence of bytes.
 macro characters_to_bytes() begin
@@ -47,22 +53,28 @@ macro point_to_bytes() begin
     bytes := <<point.a, point.b>>;
 end macro;
 
+\* PROCEDURES:
+
 \* The main procedure that hashes a message using the Sinsemilla hash function.
 procedure sinsemilla_hash(domain, message)
 variables
     domain_bytes = <<>>;
 begin
+    \* Encode the domain characters as bytes and store them in `domain_bytes` for later use.
     EncodeDomain:
         characters := domain;
         characters_to_bytes();
         domain_bytes := bytes;
-    EncodeMessage:    
+    \* Encode the message characters as bits and store them in `bits` for later use.
+    EncodeMessage:
         characters := message;
         characters_to_bytes();
         bytes_to_bits();
+    \* With the domain bytes in `bytes` and the message bits in `bits`, call the main procedure to hash the message.
     SinsemillaHashToPoint:
         bytes := domain_bytes;
         call sinsemilla_hash_to_point();
+    \* Decode the point coordinates to characters.
     DecodeCipherText:
         point_to_bytes();
         bytes_to_characters();
@@ -74,9 +86,12 @@ end procedure;
 \* Convert the message bits into a Pallas point, using the domain bytes stored in `bytes` as the domain separator
 \* and the message bits stored in `bits` as the message.
 procedure sinsemilla_hash_to_point()
-variables 
+variables
+    \* The number of chunks in the message.
     n = Len(bits) \div k,
+    \* The accumulator point.
     accumulator,
+    \* The index of the current slice to be used in the main loop.
     i = 1;
 begin
     CallPad:
@@ -95,7 +110,7 @@ begin
                 \* Produce a Pallas point calling `s` given the padded bits (10 bits).
                 bits := slices[i];
                 call s();
-            DoIncompleteAddition:
+            Accumulate:
                 \* Incomplete addition of the accumulator and the point.
                 accumulator := IncompleteAddition(IncompleteAddition(accumulator, point), accumulator);
             IncrementIndex:
@@ -124,7 +139,7 @@ end procedure;
 procedure q()
 begin
     Q:
-        call hash_to_pallas(sinsemilla_q_separator, bytes);
+        call hash_to_pallas(SinsemillaQ, bytes);
     return;
 end procedure;
 
@@ -135,7 +150,7 @@ begin
     CallI2LEOSP:
         call IntToLEOSP();
     S:
-        call hash_to_pallas(sinsemilla_s_separator, bytes);
+        call hash_to_pallas(SinsemillaS, bytes);
     return;
 end procedure;
 
@@ -169,10 +184,13 @@ end procedure;
 begin
     SinSemillaHashCall:
         \* Call the main procedure with the domain and message. Strings are represented as sequences of characters.
-        call sinsemilla_hash(<<"d", "o", "m", "a", "i", "n">>, <<"m", "e", "s", "s", "a", "g", "e">>);
+        call sinsemilla_hash(
+            <<"z",".", "c", "a", "s", "h", ":", "t", "e", "s", "t", "-", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>,
+            <<"m", "e", "s", "s", "a", "g", "e">>
+        );
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "a04ed1d" /\ chksum(tla) = "93eef08c")
-\* Procedure variable n of procedure sinsemilla_hash_to_point at line 78 col 5 changed to n_
+\* BEGIN TRANSLATION (chksum(pcal) = "b362b92f" /\ chksum(tla) = "b3f0674c")
+\* Procedure variable n of procedure sinsemilla_hash_to_point at line 91 col 5 changed to n_
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, bits, slices, pc, stack
 
@@ -182,9 +200,9 @@ k == 10
 
 IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
-sinsemilla_q_separator == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
+SinsemillaQ == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
 
-sinsemilla_s_separator == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
+SinsemillaS == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
 
 VARIABLES domain, message, domain_bytes, n_, accumulator, i, n, separator, 
           message_bytes, byte1, byte2, internal_bits
@@ -319,20 +337,20 @@ MainLoop == /\ pc = "MainLoop"
 CallS == /\ pc = "CallS"
          /\ bits' = slices[i]
          /\ stack' = << [ procedure |->  "s",
-                          pc        |->  "DoIncompleteAddition" ] >>
+                          pc        |->  "Accumulate" ] >>
                       \o stack
          /\ pc' = "CallI2LEOSP"
          /\ UNCHANGED << point, characters, bytes, slices, domain, message, 
                          domain_bytes, n_, accumulator, i, n, separator, 
                          message_bytes, byte1, byte2, internal_bits >>
 
-DoIncompleteAddition == /\ pc = "DoIncompleteAddition"
-                        /\ accumulator' = IncompleteAddition(IncompleteAddition(accumulator, point), accumulator)
-                        /\ pc' = "IncrementIndex"
-                        /\ UNCHANGED << point, characters, bytes, bits, slices, 
-                                        stack, domain, message, domain_bytes, 
-                                        n_, i, n, separator, message_bytes, 
-                                        byte1, byte2, internal_bits >>
+Accumulate == /\ pc = "Accumulate"
+              /\ accumulator' = IncompleteAddition(IncompleteAddition(accumulator, point), accumulator)
+              /\ pc' = "IncrementIndex"
+              /\ UNCHANGED << point, characters, bytes, bits, slices, stack, 
+                              domain, message, domain_bytes, n_, i, n, 
+                              separator, message_bytes, byte1, byte2, 
+                              internal_bits >>
 
 IncrementIndex == /\ pc = "IncrementIndex"
                   /\ i' = i + 1
@@ -355,8 +373,7 @@ AssignAccumulatorToPoint == /\ pc = "AssignAccumulatorToPoint"
                                             byte2, internal_bits >>
 
 sinsemilla_hash_to_point == CallPad \/ CallQ \/ InitializeAcc \/ MainLoop
-                               \/ CallS \/ DoIncompleteAddition
-                               \/ IncrementIndex
+                               \/ CallS \/ Accumulate \/ IncrementIndex
                                \/ AssignAccumulatorToPoint
 
 GetSlices == /\ pc = "GetSlices"
@@ -385,7 +402,7 @@ pad == GetSlices \/ PadLastSlice
 
 Q == /\ pc = "Q"
      /\ /\ message_bytes' = bytes
-        /\ separator' = sinsemilla_q_separator
+        /\ separator' = SinsemillaQ
         /\ stack' = << [ procedure |->  "hash_to_pallas",
                          pc        |->  Head(stack).pc,
                          separator |->  separator,
@@ -415,7 +432,7 @@ CallI2LEOSP == /\ pc = "CallI2LEOSP"
 
 S == /\ pc = "S"
      /\ /\ message_bytes' = bytes
-        /\ separator' = sinsemilla_s_separator
+        /\ separator' = SinsemillaS
         /\ stack' = << [ procedure |->  "hash_to_pallas",
                          pc        |->  Head(stack).pc,
                          separator |->  separator,
@@ -467,7 +484,7 @@ AssignToBytes == /\ pc = "AssignToBytes"
 IntToLEOSP == DoIntToLEOSP \/ AssignToBytes
 
 SinSemillaHashCall == /\ pc = "SinSemillaHashCall"
-                      /\ /\ domain' = <<"d", "o", "m", "a", "i", "n">>
+                      /\ /\ domain' = <<"z",".", "c", "a", "s", "h", ":", "t", "e", "s", "t", "-", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>
                          /\ message' = <<"m", "e", "s", "s", "a", "g", "e">>
                          /\ stack' = << [ procedure |->  "sinsemilla_hash",
                                           pc        |->  "Done",
