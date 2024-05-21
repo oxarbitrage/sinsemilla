@@ -148,7 +148,7 @@ end procedure;
 procedure s()
 begin
     CallI2LEOSP:
-        call IntToLEOSP();
+        call IntToLEOSP32();
     S:
         call hash_to_pallas(SinsemillaS, bytes);
     return;
@@ -167,17 +167,23 @@ begin
     return;
 end procedure;
 
-\* Integer to Little-Endian Octet String Pairing
-procedure IntToLEOSP()
-variables byte1 = 0, byte2 = 0, internal_bits = <<>>;
+(* Integer to Little-Endian Octet String Pairing.
+
+This procedure assumes k = 10, so we have 8 bits to build the first byte and 2 bits for the second.
+The second byte is formed by the first two bits of the second byte of the input and 6 zeros.
+We reach the 32 bytes by adding two zeros at the end.
+
+This algorithm is the one implemented in [Zebra](https://github.com/ZcashFoundation/zebra/blob/v1.7.0/zebra-chain/src/orchard/sinsemilla.rs#L72-L74)
+*)
+procedure IntToLEOSP32()
 begin
-    DoIntToLEOSP:
-        byte1 := BitSequenceToByte(SubSeq(bits, 1, 8));
-        internal_bits := SubSeq(bits, 9, 10);
-        bits := <<internal_bits[1], internal_bits[2], 0, 0, 0, 0, 0, 0>>;
-        byte2 := BitSequenceToByte(bits);
-    AssignToBytes:
-        bytes := <<byte1, byte2, 0, 0>>;
+    IntToLEOSP:
+        bytes := <<
+            BitSequenceToByte(SubSeq(bits, 1, 8)),
+            BitSequenceToByte(<<SubSeq(bits, 9, 10)[1], SubSeq(bits, 9, 10)[2], 0, 0, 0, 0, 0, 0>>),
+            0,
+            0
+        >>;
     return;
 end procedure;
 
@@ -189,7 +195,7 @@ begin
             <<"m", "e", "s", "s", "a", "g", "e">>
         );
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "b362b92f" /\ chksum(tla) = "b3f0674c")
+\* BEGIN TRANSLATION (chksum(pcal) = "d4d9316b" /\ chksum(tla) = "6cf9680d")
 \* Procedure variable n of procedure sinsemilla_hash_to_point at line 91 col 5 changed to n_
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, bits, slices, pc, stack
@@ -205,11 +211,10 @@ SinsemillaQ == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m
 SinsemillaS == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
 
 VARIABLES domain, message, domain_bytes, n_, accumulator, i, n, separator, 
-          message_bytes, byte1, byte2, internal_bits
+          message_bytes
 
 vars == << point, characters, bytes, bits, slices, pc, stack, domain, message, 
-           domain_bytes, n_, accumulator, i, n, separator, message_bytes, 
-           byte1, byte2, internal_bits >>
+           domain_bytes, n_, accumulator, i, n, separator, message_bytes >>
 
 Init == (* Global variables *)
         /\ point = [a |-> 0, b |-> 0]
@@ -230,10 +235,6 @@ Init == (* Global variables *)
         (* Procedure hash_to_pallas *)
         /\ separator = defaultInitValue
         /\ message_bytes = defaultInitValue
-        (* Procedure IntToLEOSP *)
-        /\ byte1 = 0
-        /\ byte2 = 0
-        /\ internal_bits = <<>>
         /\ stack = << >>
         /\ pc = "SinSemillaHashCall"
 
@@ -244,7 +245,7 @@ EncodeDomain == /\ pc = "EncodeDomain"
                 /\ pc' = "EncodeMessage"
                 /\ UNCHANGED << point, bits, slices, stack, domain, message, 
                                 n_, accumulator, i, n, separator, 
-                                message_bytes, byte1, byte2, internal_bits >>
+                                message_bytes >>
 
 EncodeMessage == /\ pc = "EncodeMessage"
                  /\ characters' = message
@@ -253,8 +254,7 @@ EncodeMessage == /\ pc = "EncodeMessage"
                  /\ pc' = "SinsemillaHashToPoint"
                  /\ UNCHANGED << point, slices, stack, domain, message, 
                                  domain_bytes, n_, accumulator, i, n, 
-                                 separator, message_bytes, byte1, byte2, 
-                                 internal_bits >>
+                                 separator, message_bytes >>
 
 SinsemillaHashToPoint == /\ pc = "SinsemillaHashToPoint"
                          /\ bytes' = domain_bytes
@@ -270,8 +270,7 @@ SinsemillaHashToPoint == /\ pc = "SinsemillaHashToPoint"
                          /\ pc' = "CallPad"
                          /\ UNCHANGED << point, characters, bits, slices, 
                                          domain, message, domain_bytes, n, 
-                                         separator, message_bytes, byte1, 
-                                         byte2, internal_bits >>
+                                         separator, message_bytes >>
 
 DecodeCipherText == /\ pc = "DecodeCipherText"
                     /\ bytes' = <<point.a, point.b>>
@@ -279,8 +278,7 @@ DecodeCipherText == /\ pc = "DecodeCipherText"
                     /\ pc' = "Return"
                     /\ UNCHANGED << point, bits, slices, stack, domain, 
                                     message, domain_bytes, n_, accumulator, i, 
-                                    n, separator, message_bytes, byte1, byte2, 
-                                    internal_bits >>
+                                    n, separator, message_bytes >>
 
 Return == /\ pc = "Return"
           /\ PrintT(characters)
@@ -290,8 +288,7 @@ Return == /\ pc = "Return"
           /\ message' = Head(stack).message
           /\ stack' = Tail(stack)
           /\ UNCHANGED << point, characters, bytes, bits, slices, n_, 
-                          accumulator, i, n, separator, message_bytes, byte1, 
-                          byte2, internal_bits >>
+                          accumulator, i, n, separator, message_bytes >>
 
 sinsemilla_hash == EncodeDomain \/ EncodeMessage \/ SinsemillaHashToPoint
                       \/ DecodeCipherText \/ Return
@@ -305,8 +302,7 @@ CallPad == /\ pc = "CallPad"
            /\ pc' = "GetSlices"
            /\ UNCHANGED << point, characters, bytes, bits, slices, domain, 
                            message, domain_bytes, n_, accumulator, i, 
-                           separator, message_bytes, byte1, byte2, 
-                           internal_bits >>
+                           separator, message_bytes >>
 
 CallQ == /\ pc = "CallQ"
          /\ stack' = << [ procedure |->  "q",
@@ -315,15 +311,14 @@ CallQ == /\ pc = "CallQ"
          /\ pc' = "Q"
          /\ UNCHANGED << point, characters, bytes, bits, slices, domain, 
                          message, domain_bytes, n_, accumulator, i, n, 
-                         separator, message_bytes, byte1, byte2, internal_bits >>
+                         separator, message_bytes >>
 
 InitializeAcc == /\ pc = "InitializeAcc"
                  /\ accumulator' = point
                  /\ pc' = "MainLoop"
                  /\ UNCHANGED << point, characters, bytes, bits, slices, stack, 
                                  domain, message, domain_bytes, n_, i, n, 
-                                 separator, message_bytes, byte1, byte2, 
-                                 internal_bits >>
+                                 separator, message_bytes >>
 
 MainLoop == /\ pc = "MainLoop"
             /\ IF i <= n_
@@ -331,8 +326,7 @@ MainLoop == /\ pc = "MainLoop"
                   ELSE /\ pc' = "AssignAccumulatorToPoint"
             /\ UNCHANGED << point, characters, bytes, bits, slices, stack, 
                             domain, message, domain_bytes, n_, accumulator, i, 
-                            n, separator, message_bytes, byte1, byte2, 
-                            internal_bits >>
+                            n, separator, message_bytes >>
 
 CallS == /\ pc = "CallS"
          /\ bits' = slices[i]
@@ -342,23 +336,21 @@ CallS == /\ pc = "CallS"
          /\ pc' = "CallI2LEOSP"
          /\ UNCHANGED << point, characters, bytes, slices, domain, message, 
                          domain_bytes, n_, accumulator, i, n, separator, 
-                         message_bytes, byte1, byte2, internal_bits >>
+                         message_bytes >>
 
 Accumulate == /\ pc = "Accumulate"
               /\ accumulator' = IncompleteAddition(IncompleteAddition(accumulator, point), accumulator)
               /\ pc' = "IncrementIndex"
               /\ UNCHANGED << point, characters, bytes, bits, slices, stack, 
                               domain, message, domain_bytes, n_, i, n, 
-                              separator, message_bytes, byte1, byte2, 
-                              internal_bits >>
+                              separator, message_bytes >>
 
 IncrementIndex == /\ pc = "IncrementIndex"
                   /\ i' = i + 1
                   /\ pc' = "MainLoop"
                   /\ UNCHANGED << point, characters, bytes, bits, slices, 
                                   stack, domain, message, domain_bytes, n_, 
-                                  accumulator, n, separator, message_bytes, 
-                                  byte1, byte2, internal_bits >>
+                                  accumulator, n, separator, message_bytes >>
 
 AssignAccumulatorToPoint == /\ pc = "AssignAccumulatorToPoint"
                             /\ point' = accumulator
@@ -369,8 +361,7 @@ AssignAccumulatorToPoint == /\ pc = "AssignAccumulatorToPoint"
                             /\ stack' = Tail(stack)
                             /\ UNCHANGED << characters, bytes, bits, slices, 
                                             domain, message, domain_bytes, n, 
-                                            separator, message_bytes, byte1, 
-                                            byte2, internal_bits >>
+                                            separator, message_bytes >>
 
 sinsemilla_hash_to_point == CallPad \/ CallQ \/ InitializeAcc \/ MainLoop
                                \/ CallS \/ Accumulate \/ IncrementIndex
@@ -383,8 +374,7 @@ GetSlices == /\ pc = "GetSlices"
              /\ pc' = "PadLastSlice"
              /\ UNCHANGED << point, characters, bytes, bits, stack, domain, 
                              message, domain_bytes, n_, accumulator, i, n, 
-                             separator, message_bytes, byte1, byte2, 
-                             internal_bits >>
+                             separator, message_bytes >>
 
 PadLastSlice == /\ pc = "PadLastSlice"
                 /\ slices' = [slices EXCEPT ![Len(slices)] =                        [index \in 1..k |-> IF index <= Len(slices[Len(slices)]) THEN
@@ -395,8 +385,7 @@ PadLastSlice == /\ pc = "PadLastSlice"
                 /\ stack' = Tail(stack)
                 /\ UNCHANGED << point, characters, bytes, bits, domain, 
                                 message, domain_bytes, n_, accumulator, i, 
-                                separator, message_bytes, byte1, byte2, 
-                                internal_bits >>
+                                separator, message_bytes >>
 
 pad == GetSlices \/ PadLastSlice
 
@@ -410,22 +399,15 @@ Q == /\ pc = "Q"
                      \o Tail(stack)
      /\ pc' = "HashToPallas"
      /\ UNCHANGED << point, characters, bytes, bits, slices, domain, message, 
-                     domain_bytes, n_, accumulator, i, n, byte1, byte2, 
-                     internal_bits >>
+                     domain_bytes, n_, accumulator, i, n >>
 
 q == Q
 
 CallI2LEOSP == /\ pc = "CallI2LEOSP"
-               /\ stack' = << [ procedure |->  "IntToLEOSP",
-                                pc        |->  "S",
-                                byte1     |->  byte1,
-                                byte2     |->  byte2,
-                                internal_bits |->  internal_bits ] >>
+               /\ stack' = << [ procedure |->  "IntToLEOSP32",
+                                pc        |->  "S" ] >>
                             \o stack
-               /\ byte1' = 0
-               /\ byte2' = 0
-               /\ internal_bits' = <<>>
-               /\ pc' = "DoIntToLEOSP"
+               /\ pc' = "IntToLEOSP"
                /\ UNCHANGED << point, characters, bytes, bits, slices, domain, 
                                message, domain_bytes, n_, accumulator, i, n, 
                                separator, message_bytes >>
@@ -440,8 +422,7 @@ S == /\ pc = "S"
                      \o Tail(stack)
      /\ pc' = "HashToPallas"
      /\ UNCHANGED << point, characters, bytes, bits, slices, domain, message, 
-                     domain_bytes, n_, accumulator, i, n, byte1, byte2, 
-                     internal_bits >>
+                     domain_bytes, n_, accumulator, i, n >>
 
 s == CallI2LEOSP \/ S
 
@@ -455,33 +436,24 @@ HashToPallas == /\ pc = "HashToPallas"
                 /\ message_bytes' = Head(stack).message_bytes
                 /\ stack' = Tail(stack)
                 /\ UNCHANGED << characters, bytes, bits, slices, domain, 
-                                message, domain_bytes, n_, accumulator, i, n, 
-                                byte1, byte2, internal_bits >>
+                                message, domain_bytes, n_, accumulator, i, n >>
 
 hash_to_pallas == HashToPallas
 
-DoIntToLEOSP == /\ pc = "DoIntToLEOSP"
-                /\ byte1' = BitSequenceToByte(SubSeq(bits, 1, 8))
-                /\ internal_bits' = SubSeq(bits, 9, 10)
-                /\ bits' = <<internal_bits'[1], internal_bits'[2], 0, 0, 0, 0, 0, 0>>
-                /\ byte2' = BitSequenceToByte(bits')
-                /\ pc' = "AssignToBytes"
-                /\ UNCHANGED << point, characters, bytes, slices, stack, 
-                                domain, message, domain_bytes, n_, accumulator, 
-                                i, n, separator, message_bytes >>
+IntToLEOSP == /\ pc = "IntToLEOSP"
+              /\ bytes' =          <<
+                              BitSequenceToByte(SubSeq(bits, 1, 8)),
+                              BitSequenceToByte(<<SubSeq(bits, 9, 10)[1], SubSeq(bits, 9, 10)[2], 0, 0, 0, 0, 0, 0>>),
+                              0,
+                              0
+                          >>
+              /\ pc' = Head(stack).pc
+              /\ stack' = Tail(stack)
+              /\ UNCHANGED << point, characters, bits, slices, domain, message, 
+                              domain_bytes, n_, accumulator, i, n, separator, 
+                              message_bytes >>
 
-AssignToBytes == /\ pc = "AssignToBytes"
-                 /\ bytes' = <<byte1, byte2, 0, 0>>
-                 /\ pc' = Head(stack).pc
-                 /\ byte1' = Head(stack).byte1
-                 /\ byte2' = Head(stack).byte2
-                 /\ internal_bits' = Head(stack).internal_bits
-                 /\ stack' = Tail(stack)
-                 /\ UNCHANGED << point, characters, bits, slices, domain, 
-                                 message, domain_bytes, n_, accumulator, i, n, 
-                                 separator, message_bytes >>
-
-IntToLEOSP == DoIntToLEOSP \/ AssignToBytes
+IntToLEOSP32 == IntToLEOSP
 
 SinSemillaHashCall == /\ pc = "SinSemillaHashCall"
                       /\ /\ domain' = <<"z",".", "c", "a", "s", "h", ":", "t", "e", "s", "t", "-", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>
@@ -496,14 +468,13 @@ SinSemillaHashCall == /\ pc = "SinSemillaHashCall"
                       /\ pc' = "EncodeDomain"
                       /\ UNCHANGED << point, characters, bytes, bits, slices, 
                                       n_, accumulator, i, n, separator, 
-                                      message_bytes, byte1, byte2, 
-                                      internal_bits >>
+                                      message_bytes >>
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == pc = "Done" /\ UNCHANGED vars
 
 Next == sinsemilla_hash \/ sinsemilla_hash_to_point \/ pad \/ q \/ s
-           \/ hash_to_pallas \/ IntToLEOSP \/ SinSemillaHashCall
+           \/ hash_to_pallas \/ IntToLEOSP32 \/ SinSemillaHashCall
            \/ Terminating
 
 Spec == Init /\ [][Next]_vars
