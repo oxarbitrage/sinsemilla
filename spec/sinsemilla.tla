@@ -1,4 +1,13 @@
 ---- MODULE sinsemilla ----
+(***************************************************************************)
+(* Sinsemilla hash function specification                                  *)
+(*                                                                         *)
+(* https://zips.z.cash/protocol/protocol.pdf#concretesinsemillahash        *)
+(*                                                                         *)
+(* Specifies what is needed to implement a sinsemilla hash function        *)
+(* algorithm.                                                              *)
+(*                                                                         *)
+(***************************************************************************)
 EXTENDS TLC, Naturals, Integers, Sequences, Utils, Randomization
 
 (*--algorithm sinsemilla
@@ -47,13 +56,13 @@ define
     InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes /\ TypeInvariantBytes /\ 
         TypeInvariantBits /\ TypeInvariantSlices
 
-    \* PROPERTIES:
+    \* LIVENESS:
 
     \* Liveness property stating that `sinsemilla_hash` will eventually end up with a point different than the 
     \* starting one.
     Liveness == <> (point # [a |-> 0, b |-> 0])
 
-    \* SAFETY PROPERTIES:
+    \* SAFETY:
 
     \* Bytes should always be a sequence of integers representing bytes.
     SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A i \in 1..Len(bytes) : bytes[i] \in 0..255)
@@ -229,8 +238,8 @@ begin
         );
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "fcd52530" /\ chksum(tla) = "92c4d5b2")
-\* Procedure variable n of procedure sinsemilla_hash_to_point at line 123 col 5 changed to n_
+\* BEGIN TRANSLATION (chksum(pcal) = "fcd52530" /\ chksum(tla) = "b95c977e")
+\* Procedure variable n of procedure sinsemilla_hash_to_point at line 128 col 5 changed to n_
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, pc, stack
 
