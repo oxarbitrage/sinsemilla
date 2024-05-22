@@ -2,8 +2,6 @@
 (***************************************************************************)
 (* Sinsemilla hash function specification                                  *)
 (*                                                                         *)
-(* https://zips.z.cash/protocol/protocol.pdf#concretesinsemillahash        *)
-(*                                                                         *)
 (* Specifies what is needed to implement a sinsemilla hash function        *)
 (* algorithm.                                                              *)
 (*                                                                         *)
@@ -12,39 +10,32 @@ EXTENDS TLC, Naturals, Integers, Sequences, Utils, Randomization
 
 (*--algorithm sinsemilla
 
-\* GLOBAL VARIABLES
-
 variables
-    \* Store any point on the Pallas curve at any program state. A point is a structure with coordinates `a` and `b`.
+    \* Holder for a point on the Pallas curve.
     point = [a |-> 0, b |-> 0];
-    \* Store any sequence of characters at any program state.
+    \* Holder for a sequence of characters.
     characters = <<>>;
-    \* Store any sequence of bytes at any program state.
+    \* Holder for a sequence of bytes.
     bytes = <<>>;
-    \* Store any sequence of bytes at any program state where the `bytes` are already busy.
+    \* Holder for a sequence of bytes when the bytes variable is already busy.
     auxiliar_bytes = <<>>;
-    \* Store any sequence of bits at any program state.
+    \* Holder for a sequence of bits.
     bits = <<>>;
-    \* Store any sequence of slices at any program state.
+    \* Holder for a sequence of slices.
     slices = <<>>;
 
 define
-    \* CONSTANTS:
-
-    \* The number of bits in a chunk
+    \* The number of bits in a chunk.
     k == 10
-    \* The domain separator string for the Q point: `z.cash.SinsemillaQ`
-    SinsemillaQ == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
-    \* The domain separator string for the S point: `z.cash.SinsemillaS`
-    SinsemillaS == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
-
-    \* OPERATORS:
+    \* The domain separator string for the Q point: "z.cash.SinsemillaQ".
+    SinsemillaQ == 
+        << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
+    \* The domain separator string for the S point: "z.cash.SinsemillaS".
+    SinsemillaS == 
+        << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
 
     \* The incomplete addition operator. Sums the x and y coordinates of two points on the Pallas curve.
-    \* TODO: Consider x and y cases here?
     IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
-
-    \* TYPE INVARIANTS:
 
     TypeInvariantPoint == point \in [a: Nat, b: Nat]
     TypeInvariantCharacters == characters \in Seq(STRING)
@@ -53,65 +44,62 @@ define
     TypeInvariantBits == bits \in Seq({0, 1})
     TypeInvariantSlices == slices \in Seq(Seq({0, 1}))
 
-    InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes /\ TypeInvariantBytes /\ 
-        TypeInvariantBits /\ TypeInvariantSlices
+    InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes
+        /\ TypeInvariantBytes /\ TypeInvariantBits /\ TypeInvariantSlices
 
-    \* LIVENESS:
-
-    \* Liveness property stating that `sinsemilla_hash` will eventually end up with a point different than the 
-    \* starting one.
+    \* Liveness property stating that the point holder will eventually end up with a point different than the starting one.
     Liveness == <> (point # [a |-> 0, b |-> 0])
-
-    \* SAFETY:
 
     \* Bytes should always be a sequence of integers representing bytes.
     SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A i \in 1..Len(bytes) : bytes[i] \in 0..255)
 
-    \* Slices should always be a sequence of sequences of bits (0 or 1) and each slice should have no length greater than k.
-    \* We only can have a slice with length less than k when we are building the slices in the `PadLastSlice` label of the `pad` procedure.
-    SafetySlicesSequence == /\ slices = <<>> \/ (\A i \in 1..Len(slices) : slices[i] \in Seq({0, 1}) /\ Len(slices[i]) <= k)
+    \* Slices should always be a sequence of sequences of bits and each slice should have no length greater than k.
+    \* We only can have a slice with length < than k when we are building the slices in the "PadLastSlice" label of the
+    \* pad procedure.
+    SafetySlicesSequence == 
+        /\ slices = <<>> \/ (\A i \in 1..Len(slices) : slices[i] \in Seq({0, 1}) /\ Len(slices[i]) <= k)
 
     Safety == SafetyBytesSequence /\ SafetySlicesSequence
 end define;
 
-\* MACROS:
-
 \* Convert a sequence of characters to a sequence of bytes.
-macro characters_to_bytes() begin
+macro characters_to_bytes() 
+begin
     bytes := [c \in 1..Len(characters) |-> Ord(characters[c])];
 end macro;
 
 \* Convert a sequence of bytes to a flat sequence of bits.
-macro bytes_to_bits() begin
+macro bytes_to_bits() 
+begin
     bits := FlattenSeq([byte \in 1..Len(bytes) |-> ByteToBitSequence(bytes[byte])]);
 end macro;
 
 \* Convert a sequence of bytes to a a sequence of characters.
-macro bytes_to_characters() begin
+macro bytes_to_characters() 
+begin
     characters := [b \in 1..Len(bytes) |-> Chr(bytes[b])];
 end macro;
 
 \* Convert a Pallas point to a sequence of fixed bytes. Here we just use the point coordinates as bytes.
-macro point_to_bytes() begin
+macro point_to_bytes()
+begin
     bytes := <<point.a, point.b>>;
 end macro;
-
-\* PROCEDURES:
 
 \* The main procedure that hashes a message using the Sinsemilla hash function.
 procedure sinsemilla_hash(domain, message)
 begin
-    \* Encode the domain characters as bytes and store them in `domain_bytes` for later use.
+    \* Encode the domain characters as bytes and store them in auxiliar_bytes for later use.
     EncodeDomain:
         characters := domain;
         characters_to_bytes();
         auxiliar_bytes := bytes;
-    \* Encode the message characters as bits and store them in `bits` for later use.
+    \* Encode the message characters as bits and store them in bits for later use.
     EncodeMessage:
         characters := message;
         characters_to_bytes();
         bytes_to_bits();
-    \* With the domain bytes in `bytes` and the message bits in `bits`, call the main procedure to hash the message.
+    \* With the domain bytes in bytes and the message bits in bits, call the main procedure to hash the message.
     SinsemillaHashToPoint:
         bytes := auxiliar_bytes;
         call sinsemilla_hash_to_point();
@@ -124,8 +112,8 @@ begin
     return;
 end procedure;
 
-\* Convert the message bits into a Pallas point, using the domain bytes stored in `bytes` as the domain separator
-\* and the message bits stored in `bits` as the message.
+\* Convert the message bits into a Pallas point, using the domain bytes stored in bytes as the domain separator
+\* and the message bits stored in bits as the message.
 procedure sinsemilla_hash_to_point()
 variables
     \* The number of chunks in the message.
@@ -136,24 +124,25 @@ variables
     i = 1;
 begin
     CallPad:
-        \* Use the global `bits` as input and get slices in `slices`.
+        \* Use the global bits as input and get slices in slices.
         call pad(n);
     CallQ:
         \* Produce a Pallas point with the bytes stored, these bytes are set in the caller as domain bytes.
         call q();
     InitializeAcc:
-        \* With the point we got from calling `q`, initialize the accumulator. 
+        \* With the point we got from calling q, initialize the accumulator. 
         accumulator := point;
     MainLoop:
         \* Loop through the slices.
         while i <= n do
             CallS:
-                \* Produce a Pallas point calling `s` given the padded bits (10 bits).
+                \* Produce a Pallas point calling s given the padded bits (10 bits).
                 bits := slices[i];
                 call s();
             Accumulate:
                 \* Incomplete addition of the accumulator and the point.
-                accumulator := IncompleteAddition(IncompleteAddition(accumulator, point), accumulator);
+                accumulator := 
+                    IncompleteAddition(IncompleteAddition(accumulator, point), accumulator);
             IncrementIndex:
                 i := i + 1;
         end while;
@@ -176,7 +165,7 @@ begin
     return;
 end procedure;
 
-\* Produce a Pallas point with the bytes stored in `bytes`, these bytes are set in the caller as domain bytes.
+\* Produce a Pallas point with the bytes stored in bytes, these bytes are set in the caller as domain bytes.
 procedure q()
 begin
     Q:
@@ -184,8 +173,8 @@ begin
     return;
 end procedure;
 
-\* Produce a Pallas point given the padded bits (10 bits). First we call `IntToLEOSP` on the bits and
-\* then we call `hash_to_pallas` with the result.
+\* Produce a Pallas point given the padded bits (10 bits). First we call IntToLEOSP on the bits and
+\* then we call hash_to_pallas with the result.
 procedure s()
 begin
     CallI2LEOSP:
@@ -195,7 +184,7 @@ begin
     return;
 end procedure;
 
-\* Produce a Pallas point with the separator and message bytes stored in `separator` and `message_bytes`.
+\* Produce a Pallas point with the separator and message bytes stored in separator and message_bytes.
 procedure hash_to_pallas(separator, message_bytes)
 begin
     HashToPallas:
@@ -214,7 +203,7 @@ This procedure assumes k = 10, so we have 8 bits to build the first byte and 2 b
 The second byte is formed by the first two bits of the second byte of the input and 6 zeros.
 We reach the 32 bytes by adding two zeros at the end.
 
-This algorithm is the one implemented in [Zebra](https://github.com/ZcashFoundation/zebra/blob/v1.7.0/zebra-chain/src/orchard/sinsemilla.rs#L72-L74)
+This algorithm is the one implemented in Zebra.
 *)
 procedure IntToLEOSP32()
 begin
@@ -228,35 +217,33 @@ begin
     return;
 end procedure;
 
+\* Call the main procedure with the domain and message. Strings are represented as sequences of characters.
 fair process main = "MAIN"
 begin
     SinSemillaHashCall:
-        \* Call the main procedure with the domain and message. Strings are represented as sequences of characters.
         call sinsemilla_hash(
-            <<"z",".", "c", "a", "s", "h", ":", "t", "e", "s", "t", "-", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>,
+            <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>,
             <<"m", "e", "s", "s", "a", "g", "e">>
         );
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "fcd52530" /\ chksum(tla) = "b95c977e")
-\* Procedure variable n of procedure sinsemilla_hash_to_point at line 128 col 5 changed to n_
+\* BEGIN TRANSLATION (chksum(pcal) = "85f15526" /\ chksum(tla) = "944187a6")
+\* Procedure variable n of procedure sinsemilla_hash_to_point at line 121 col 5 changed to n_
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, pc, stack
 
 (* define statement *)
 k == 10
 
-SinsemillaQ == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
+SinsemillaQ ==
+    << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
 
-SinsemillaS == << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
-
-
+SinsemillaS ==
+    << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
 
 
 
 IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
-
-
 
 TypeInvariantPoint == point \in [a: Nat, b: Nat]
 TypeInvariantCharacters == characters \in Seq(STRING)
@@ -265,23 +252,20 @@ TypeInvariantAuxiliarBytes == bytes \in Seq(Nat)
 TypeInvariantBits == bits \in Seq({0, 1})
 TypeInvariantSlices == slices \in Seq(Seq({0, 1}))
 
-InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes /\ TypeInvariantBytes /\
-    TypeInvariantBits /\ TypeInvariantSlices
-
-
-
+InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes
+    /\ TypeInvariantBytes /\ TypeInvariantBits /\ TypeInvariantSlices
 
 
 Liveness == <> (point # [a |-> 0, b |-> 0])
-
-
 
 
 SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A i \in 1..Len(bytes) : bytes[i] \in 0..255)
 
 
 
-SafetySlicesSequence == /\ slices = <<>> \/ (\A i \in 1..Len(slices) : slices[i] \in Seq({0, 1}) /\ Len(slices[i]) <= k)
+
+SafetySlicesSequence ==
+    /\ slices = <<>> \/ (\A i \in 1..Len(slices) : slices[i] \in Seq({0, 1}) /\ Len(slices[i]) <= k)
 
 Safety == SafetyBytesSequence /\ SafetySlicesSequence
 
@@ -544,7 +528,7 @@ IntToLEOSP(self) == /\ pc[self] = "IntToLEOSP"
 IntToLEOSP32(self) == IntToLEOSP(self)
 
 SinSemillaHashCall == /\ pc["MAIN"] = "SinSemillaHashCall"
-                      /\ /\ domain' = [domain EXCEPT !["MAIN"] = <<"z",".", "c", "a", "s", "h", ":", "t", "e", "s", "t", "-", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>]
+                      /\ /\ domain' = [domain EXCEPT !["MAIN"] = <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>]
                          /\ message' = [message EXCEPT !["MAIN"] = <<"m", "e", "s", "s", "a", "g", "e">>]
                          /\ stack' = [stack EXCEPT !["MAIN"] = << [ procedure |->  "sinsemilla_hash",
                                                                     pc        |->  "Done",
