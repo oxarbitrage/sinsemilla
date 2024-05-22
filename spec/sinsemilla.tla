@@ -35,9 +35,8 @@ define
     \* TODO: Consider x and y cases here?
     IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
-    \* INVARIANTS:
-
     \* TYPE INVARIANTS:
+
     TypeInvariantPoint == point \in [a: Nat, b: Nat]
     TypeInvariantCharacters == characters \in Seq(STRING)
     TypeInvariantBytes == bytes \in Seq(Nat)
@@ -53,6 +52,17 @@ define
     \* Liveness property stating that `sinsemilla_hash` will eventually end up with a point different than the 
     \* starting one.
     Liveness == <> (point # [a |-> 0, b |-> 0])
+
+    \* SAFETY PROPERTIES:
+
+    \* Bytes should always be a sequence of integers representing bytes.
+    SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A i \in 1..Len(bytes) : bytes[i] \in 0..255)
+
+    \* Slices should always be a sequence of sequences of bits (0 or 1) and each slice should have no length greater than k.
+    \* We only can have a slice with length less than k when we are building the slices in the `PadLastSlice` label of the `pad` procedure.
+    SafetySlicesSequence == /\ slices = <<>> \/ (\A i \in 1..Len(slices) : slices[i] \in Seq({0, 1}) /\ Len(slices[i]) <= k)
+
+    Safety == SafetyBytesSequence /\ SafetySlicesSequence
 end define;
 
 \* MACROS:
@@ -149,7 +159,7 @@ begin
     GetSlices:
         slices := [index \in 1..n |-> IF (index * k + k) >= Len(bits) THEN 
             SubSeq(bits, index * k, Len(bits)) 
-        ELSE SubSeq(bits, index * k, index * k + k)];
+        ELSE SubSeq(bits, index * k, index * k + k - 1)];
     PadLastSlice:
         slices[Len(slices)] := [index \in 1..k |-> IF index <= Len(slices[Len(slices)]) THEN 
             slices[Len(slices)][index] 
@@ -219,8 +229,8 @@ begin
         );
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "48bb3006" /\ chksum(tla) = "5198a31e")
-\* Procedure variable n of procedure sinsemilla_hash_to_point at line 113 col 5 changed to n_
+\* BEGIN TRANSLATION (chksum(pcal) = "fcd52530" /\ chksum(tla) = "92c4d5b2")
+\* Procedure variable n of procedure sinsemilla_hash_to_point at line 123 col 5 changed to n_
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, pc, stack
 
@@ -239,7 +249,6 @@ IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
 
 
-
 TypeInvariantPoint == point \in [a: Nat, b: Nat]
 TypeInvariantCharacters == characters \in Seq(STRING)
 TypeInvariantBytes == bytes \in Seq(Nat)
@@ -255,6 +264,17 @@ InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes /
 
 
 Liveness == <> (point # [a |-> 0, b |-> 0])
+
+
+
+
+SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A i \in 1..Len(bytes) : bytes[i] \in 0..255)
+
+
+
+SafetySlicesSequence == /\ slices = <<>> \/ (\A i \in 1..Len(slices) : slices[i] \in Seq({0, 1}) /\ Len(slices[i]) <= k)
+
+Safety == SafetyBytesSequence /\ SafetySlicesSequence
 
 VARIABLES domain, message, n_, accumulator, i, n, separator, message_bytes
 
@@ -427,7 +447,7 @@ sinsemilla_hash_to_point(self) == CallPad(self) \/ CallQ(self)
 GetSlices(self) == /\ pc[self] = "GetSlices"
                    /\ slices' =           [index \in 1..n[self] |-> IF (index * k + k) >= Len(bits) THEN
                                     SubSeq(bits, index * k, Len(bits))
-                                ELSE SubSeq(bits, index * k, index * k + k)]
+                                ELSE SubSeq(bits, index * k, index * k + k - 1)]
                    /\ pc' = [pc EXCEPT ![self] = "PadLastSlice"]
                    /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
                                    bits, stack, domain, message, n_, 
