@@ -91,7 +91,7 @@ begin
     bits := FlattenSeq([byte \in 1..Len(bytes) |-> ByteToBitSequence(bytes[byte])]);
 end macro;
 
-\* Convert a sequence of bytes to a a sequence of characters.
+\* Convert a sequence of bytes to a sequence of characters.
 macro bytes_to_characters() 
 begin
     characters := [b \in 1..Len(bytes) |-> Chr(bytes[b])];
@@ -146,7 +146,7 @@ begin
         \* With the point we got from calling q, initialize the accumulator. 
         accumulator := point;
     MainLoop:
-        \* Loop through the slices.
+        \* Loop over the slices.
         while i <= n do
             CallS:
                 \* Produce a Pallas point calling s given the padded bits (10 bits).
@@ -214,7 +214,7 @@ end procedure;
 
 This procedure assumes k = 10, so we have 8 bits to build the first byte and 2 bits for the second.
 The second byte is formed by the first two bits of the second byte of the input and 6 zeros.
-We reach the 32 bytes by adding two zeros at the end.
+We reach the 32 bytes by adding two zero bytes at the end.
 
 This algorithm is the one implemented in Zebra.
 *)
