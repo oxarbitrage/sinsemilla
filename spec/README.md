@@ -31,41 +31,23 @@ The specification is written as a PlusCal algorithm, which is then translated to
 
 The spec has a well-defined structure:
 
-#### Global variables
+- **Global variables**: Named memory holders available in any of the program states.
 
-Named memory holders available in any of the program states.
+- **Constants**: Values that never change, such as the maximum number of allowed slices and the domain separator strings used in different parts of the algorithm.
 
-#### Constants
+- **Operators**: Defines the `IncompleteAddition` operator for summing coordinates of two points on the Pallas curve.
 
-Values that never change, such as the maximum number of allowed slices and the domain separator strings used in different parts of the algorithm.
+- **Type invariants**: Ensures global variables are of specific types across the algorithm's behavior, which is important in untyped environments.
 
-#### Operators
+- **Liveness property**: Ensures certain global variables evolve as the algorithm runs.
 
-Defines the `IncompleteAddition` operator for summing coordinates of two points on the Pallas curve.
+- **Safety properties**: Checks properties of global variables that must hold across different parts of the algorithm during execution.
 
-#### Type invariants
+- **Macros**: Standard conversion functions defined as macros, likely available in programming environments and may not need coding in Rust or Haskell.
 
-Ensures global variables are of specific types across the algorithm's behavior, which is important in untyped environments.
+- **Procedures**: Contains the main algorithm, including the main loop and all necessary procedures. The starting procedure `sinsemilla_hash` encodes domain and message strings in the right variables and calls the main procedure `sinsemilla_hash_to_point`. This procedure processes message slices, converting them into Pallas points using `q` and `s` procedures. The slices are accumulated by the `IncompleteAddition` operator to finally get a point, which is then decoded into bytes to produce a hashed string.
 
-#### Liveness property
-
-Ensures certain global variables evolve as the algorithm runs.
-
-#### Safety properties
-
-Checks properties of global variables that must hold across different parts of the algorithm during execution.
-
-#### Macros
-
-Standard conversion functions defined as macros, likely available in programming environments and may not need coding in Rust or Haskell.
-
-#### Procedures
-
-Contains the main algorithm, including the main loop and all necessary procedures. The starting procedure `sinsemilla_hash` encodes domain and message strings in the right variables and calls the main procedure `sinsemilla_hash_to_point`. This procedure processes message slices, converting them into Pallas points using `q` and `s` procedures. The slices are accumulated by the `IncompleteAddition` operator to finally get a point, which is then decoded into bytes to produce a hashed string.
-
-#### Processes
-
-The algorithm runs as a single `MAIN` process that calls the `sinsemilla_hash` procedure with given arguments.
+- **Processes**: The algorithm runs as a single `MAIN` process that calls the `sinsemilla_hash` procedure with given arguments.
 
 ## Conclusion
 
