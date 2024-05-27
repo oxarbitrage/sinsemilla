@@ -29,6 +29,8 @@ variables
     i = 1;
     \* Holder for a point used as an accumulator.
     accumulator = [a |-> 0, b |-> 0];
+    \* Holder for the ciphertext produced by the hash function.
+    ciphertext = <<"@", "@">>;
 define
     \* The number of bits in a chunk.
     k == 10
@@ -40,6 +42,10 @@ define
     \* The domain separator string for the S point: "z.cash.SinsemillaS".
     SinsemillaS == 
         << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
+    \* A fixed domain to be used to hash the message.
+    Domain == <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>
+    \* A fixed message to be hashed.
+    Message == <<"m", "e", "s", "s", "a", "g", "e">>
 
     \* The incomplete addition operator. Sums the x and y coordinates of two points on the Pallas curve.
     IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
@@ -63,8 +69,10 @@ define
     LivenessIndex == <> (i > 1)
     \* Slices should always be produced.
     LivenessSlices == <> (Len(slices) > 0)
+    \* Ciphertext should be produced.
+    LivenessCipherValue == <> (ciphertext # <<"@", "@">>)
     \* Check all liveness properties.
-    Liveness == LivenessPoint /\ LivenessAccumulator /\ LivenessIndex /\ LivenessSlices
+    Liveness == LivenessPoint /\ LivenessAccumulator /\ LivenessIndex /\ LivenessSlices /\ LivenessCipherValue
 
     \* Bytes should always be a sequence of integers representing bytes.
     SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A index \in 1..Len(bytes) : bytes[index] \in 0..255)
@@ -75,8 +83,10 @@ define
         /\ slices = <<>> \/ (\A index \in 1..Len(slices) : slices[index] \in Seq({0, 1}) /\ Len(slices[index]) <= k)
     \* The number of slices should be less than or equal to the maximum number of chunks allowed.
     SafetyMaxChunks == n <= c
+    \* Check that the ciphertext has the correct fixed size.
+    SafetyCipherSize == Len(ciphertext) = 2
     \* Check all safety properties.
-    Safety == SafetyBytesSequence /\ SafetySlicesSequence /\ SafetyMaxChunks
+    Safety == SafetyBytesSequence /\ SafetySlicesSequence /\ SafetyMaxChunks /\ SafetyCipherSize
 end define;
 
 \* Convert a sequence of characters to a sequence of bytes.
@@ -103,18 +113,18 @@ begin
     bytes := <<point.a, point.b>>;
 end macro;
 
-\* The starting procedure that do all the conversion needed with the domain and message strings,
+\* The starting procedure that do all the conversion needed with the domain and message constants,
 \* call the main procedure to hash the message and decodes the resulting point coordinates to characters.
-procedure sinsemilla_hash(domain, message)
+procedure sinsemilla_hash()
 begin
     \* Encode the domain characters as bytes and store them in auxiliar_bytes for later use.
     EncodeDomain:
-        characters := domain;
+        characters := Domain;
         characters_to_bytes();
         auxiliar_bytes := bytes;
     \* Encode the message characters as bits and store them in bits for later use.
     EncodeMessage:
-        characters := message;
+        characters := Message;
         characters_to_bytes();
         bytes_to_bits();
     \* With the domain bytes in bytes and the message bits in bits, call the main procedure to hash the message.
@@ -125,9 +135,9 @@ begin
     DecodeCipherText:
         point_to_bytes();
         bytes_to_characters();
-    Return:
-        print characters;
-    return;
+    Ciphertext:
+        ciphertext := characters;
+        return;
 end procedure;
 
 \* the main procedure convert the message bits into a Pallas point, using the domain bytes stored in bytes as the
@@ -231,20 +241,17 @@ begin
     return;
 end procedure;
 
-\* Call the main procedure with the domain and message. Strings are represented as sequences of characters.
+\* Single process that calls the starting procedure.
 fair process main = "MAIN"
 begin
     SinSemillaHashCall:
-        call sinsemilla_hash(
-            <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>,
-            <<"m", "e", "s", "s", "a", "g", "e">>
-        );
+        call sinsemilla_hash();
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "ed72fbd9" /\ chksum(tla) = "882f4631")
+\* BEGIN TRANSLATION (chksum(pcal) = "e42dec70" /\ chksum(tla) = "77d018cd")
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, n, i, 
-          accumulator, pc, stack
+          accumulator, ciphertext, pc, stack
 
 (* define statement *)
 k == 10
@@ -256,6 +263,10 @@ SinsemillaQ ==
 
 SinsemillaS ==
     << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
+
+Domain == <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>
+
+Message == <<"m", "e", "s", "s", "a", "g", "e">>
 
 
 IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
@@ -280,7 +291,9 @@ LivenessIndex == <> (i > 1)
 
 LivenessSlices == <> (Len(slices) > 0)
 
-Liveness == LivenessPoint /\ LivenessAccumulator /\ LivenessIndex /\ LivenessSlices
+LivenessCipherValue == <> (ciphertext # <<"@", "@">>)
+
+Liveness == LivenessPoint /\ LivenessAccumulator /\ LivenessIndex /\ LivenessSlices /\ LivenessCipherValue
 
 
 SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A index \in 1..Len(bytes) : bytes[index] \in 0..255)
@@ -292,13 +305,14 @@ SafetySlicesSequence ==
 
 SafetyMaxChunks == n <= c
 
-Safety == SafetyBytesSequence /\ SafetySlicesSequence /\ SafetyMaxChunks
+SafetyCipherSize == Len(ciphertext) = 2
 
-VARIABLES domain, message, separator, message_bytes
+Safety == SafetyBytesSequence /\ SafetySlicesSequence /\ SafetyMaxChunks /\ SafetyCipherSize
+
+VARIABLES separator, message_bytes
 
 vars == << point, characters, bytes, auxiliar_bytes, bits, slices, n, i, 
-           accumulator, pc, stack, domain, message, separator, message_bytes
-        >>
+           accumulator, ciphertext, pc, stack, separator, message_bytes >>
 
 ProcSet == {"MAIN"}
 
@@ -312,9 +326,7 @@ Init == (* Global variables *)
         /\ n = 0
         /\ i = 1
         /\ accumulator = [a |-> 0, b |-> 0]
-        (* Procedure sinsemilla_hash *)
-        /\ domain = [ self \in ProcSet |-> defaultInitValue]
-        /\ message = [ self \in ProcSet |-> defaultInitValue]
+        /\ ciphertext = <<"@", "@">>
         (* Procedure hash_to_pallas *)
         /\ separator = [ self \in ProcSet |-> defaultInitValue]
         /\ message_bytes = [ self \in ProcSet |-> defaultInitValue]
@@ -322,21 +334,21 @@ Init == (* Global variables *)
         /\ pc = [self \in ProcSet |-> "SinSemillaHashCall"]
 
 EncodeDomain(self) == /\ pc[self] = "EncodeDomain"
-                      /\ characters' = domain[self]
+                      /\ characters' = Domain
                       /\ bytes' = [char \in 1..Len(characters') |-> Ord(characters'[char])]
                       /\ auxiliar_bytes' = bytes'
                       /\ pc' = [pc EXCEPT ![self] = "EncodeMessage"]
                       /\ UNCHANGED << point, bits, slices, n, i, accumulator, 
-                                      stack, domain, message, separator, 
+                                      ciphertext, stack, separator, 
                                       message_bytes >>
 
 EncodeMessage(self) == /\ pc[self] = "EncodeMessage"
-                       /\ characters' = message[self]
+                       /\ characters' = Message
                        /\ bytes' = [char \in 1..Len(characters') |-> Ord(characters'[char])]
                        /\ bits' = FlattenSeq([byte \in 1..Len(bytes') |-> ByteToBitSequence(bytes'[byte])])
                        /\ pc' = [pc EXCEPT ![self] = "SinsemillaHashToPoint"]
                        /\ UNCHANGED << point, auxiliar_bytes, slices, n, i, 
-                                       accumulator, stack, domain, message, 
+                                       accumulator, ciphertext, stack, 
                                        separator, message_bytes >>
 
 SinsemillaHashToPoint(self) == /\ pc[self] = "SinsemillaHashToPoint"
@@ -347,37 +359,35 @@ SinsemillaHashToPoint(self) == /\ pc[self] = "SinsemillaHashToPoint"
                                /\ pc' = [pc EXCEPT ![self] = "CalculateN"]
                                /\ UNCHANGED << point, characters, 
                                                auxiliar_bytes, bits, slices, n, 
-                                               i, accumulator, domain, message, 
+                                               i, accumulator, ciphertext, 
                                                separator, message_bytes >>
 
 DecodeCipherText(self) == /\ pc[self] = "DecodeCipherText"
                           /\ bytes' = <<point.a, point.b>>
                           /\ characters' = [b \in 1..Len(bytes') |-> Chr(bytes'[b])]
-                          /\ pc' = [pc EXCEPT ![self] = "Return"]
+                          /\ pc' = [pc EXCEPT ![self] = "Ciphertext"]
                           /\ UNCHANGED << point, auxiliar_bytes, bits, slices, 
-                                          n, i, accumulator, stack, domain, 
-                                          message, separator, message_bytes >>
+                                          n, i, accumulator, ciphertext, stack, 
+                                          separator, message_bytes >>
 
-Return(self) == /\ pc[self] = "Return"
-                /\ PrintT(characters)
-                /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
-                /\ domain' = [domain EXCEPT ![self] = Head(stack[self]).domain]
-                /\ message' = [message EXCEPT ![self] = Head(stack[self]).message]
-                /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
-                /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, bits, 
-                                slices, n, i, accumulator, separator, 
-                                message_bytes >>
+Ciphertext(self) == /\ pc[self] = "Ciphertext"
+                    /\ ciphertext' = characters
+                    /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                    /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                    /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
+                                    bits, slices, n, i, accumulator, separator, 
+                                    message_bytes >>
 
 sinsemilla_hash(self) == EncodeDomain(self) \/ EncodeMessage(self)
                             \/ SinsemillaHashToPoint(self)
-                            \/ DecodeCipherText(self) \/ Return(self)
+                            \/ DecodeCipherText(self) \/ Ciphertext(self)
 
 CalculateN(self) == /\ pc[self] = "CalculateN"
                     /\ n' = (Len(bits) \div k)
                     /\ pc' = [pc EXCEPT ![self] = "CallPad"]
                     /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                    bits, slices, i, accumulator, stack, 
-                                    domain, message, separator, message_bytes >>
+                                    bits, slices, i, accumulator, ciphertext, 
+                                    stack, separator, message_bytes >>
 
 CallPad(self) == /\ pc[self] = "CallPad"
                  /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "pad",
@@ -385,8 +395,8 @@ CallPad(self) == /\ pc[self] = "CallPad"
                                                       \o stack[self]]
                  /\ pc' = [pc EXCEPT ![self] = "GetSlices"]
                  /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                 bits, slices, n, i, accumulator, domain, 
-                                 message, separator, message_bytes >>
+                                 bits, slices, n, i, accumulator, ciphertext, 
+                                 separator, message_bytes >>
 
 CallQ(self) == /\ pc[self] = "CallQ"
                /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "q",
@@ -394,7 +404,7 @@ CallQ(self) == /\ pc[self] = "CallQ"
                                                     \o stack[self]]
                /\ pc' = [pc EXCEPT ![self] = "Q"]
                /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, bits, 
-                               slices, n, i, accumulator, domain, message, 
+                               slices, n, i, accumulator, ciphertext, 
                                separator, message_bytes >>
 
 InitializeAcc(self) == /\ pc[self] = "InitializeAcc"
@@ -402,7 +412,7 @@ InitializeAcc(self) == /\ pc[self] = "InitializeAcc"
                        /\ pc' = [pc EXCEPT ![self] = "MainLoop"]
                        /\ UNCHANGED << point, characters, bytes, 
                                        auxiliar_bytes, bits, slices, n, i, 
-                                       stack, domain, message, separator, 
+                                       ciphertext, stack, separator, 
                                        message_bytes >>
 
 MainLoop(self) == /\ pc[self] = "MainLoop"
@@ -410,8 +420,8 @@ MainLoop(self) == /\ pc[self] = "MainLoop"
                         THEN /\ pc' = [pc EXCEPT ![self] = "CallS"]
                         ELSE /\ pc' = [pc EXCEPT ![self] = "AssignAccumulatorToPoint"]
                   /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                  bits, slices, n, i, accumulator, stack, 
-                                  domain, message, separator, message_bytes >>
+                                  bits, slices, n, i, accumulator, ciphertext, 
+                                  stack, separator, message_bytes >>
 
 CallS(self) == /\ pc[self] = "CallS"
                /\ bits' = slices[i]
@@ -420,14 +430,14 @@ CallS(self) == /\ pc[self] = "CallS"
                                                     \o stack[self]]
                /\ pc' = [pc EXCEPT ![self] = "CallI2LEOSP"]
                /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                               slices, n, i, accumulator, domain, message, 
+                               slices, n, i, accumulator, ciphertext, 
                                separator, message_bytes >>
 
 Accumulate(self) == /\ pc[self] = "Accumulate"
                     /\ accumulator' = IncompleteAddition(IncompleteAddition(accumulator, point), accumulator)
                     /\ pc' = [pc EXCEPT ![self] = "IncrementIndex"]
                     /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                    bits, slices, n, i, stack, domain, message, 
+                                    bits, slices, n, i, ciphertext, stack, 
                                     separator, message_bytes >>
 
 IncrementIndex(self) == /\ pc[self] = "IncrementIndex"
@@ -435,7 +445,7 @@ IncrementIndex(self) == /\ pc[self] = "IncrementIndex"
                         /\ pc' = [pc EXCEPT ![self] = "MainLoop"]
                         /\ UNCHANGED << point, characters, bytes, 
                                         auxiliar_bytes, bits, slices, n, 
-                                        accumulator, stack, domain, message, 
+                                        accumulator, ciphertext, stack, 
                                         separator, message_bytes >>
 
 AssignAccumulatorToPoint(self) == /\ pc[self] = "AssignAccumulatorToPoint"
@@ -444,8 +454,8 @@ AssignAccumulatorToPoint(self) == /\ pc[self] = "AssignAccumulatorToPoint"
                                   /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
                                   /\ UNCHANGED << characters, bytes, 
                                                   auxiliar_bytes, bits, slices, 
-                                                  n, i, accumulator, domain, 
-                                                  message, separator, 
+                                                  n, i, accumulator, 
+                                                  ciphertext, separator, 
                                                   message_bytes >>
 
 sinsemilla_hash_to_point(self) == CalculateN(self) \/ CallPad(self)
@@ -461,8 +471,8 @@ GetSlices(self) == /\ pc[self] = "GetSlices"
                                 ELSE SubSeq(bits, index * k, index * k + k - 1)]
                    /\ pc' = [pc EXCEPT ![self] = "PadLastSlice"]
                    /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                   bits, n, i, accumulator, stack, domain, 
-                                   message, separator, message_bytes >>
+                                   bits, n, i, accumulator, ciphertext, stack, 
+                                   separator, message_bytes >>
 
 PadLastSlice(self) == /\ pc[self] = "PadLastSlice"
                       /\ slices' = [slices EXCEPT ![Len(slices)] =                        [index \in 1..k |-> IF index <= Len(slices[Len(slices)]) THEN
@@ -471,7 +481,7 @@ PadLastSlice(self) == /\ pc[self] = "PadLastSlice"
                       /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
                       /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
                       /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                      bits, n, i, accumulator, domain, message, 
+                                      bits, n, i, accumulator, ciphertext, 
                                       separator, message_bytes >>
 
 pad(self) == GetSlices(self) \/ PadLastSlice(self)
@@ -486,7 +496,7 @@ Q(self) == /\ pc[self] = "Q"
                                                    \o Tail(stack[self])]
            /\ pc' = [pc EXCEPT ![self] = "HashToPallas"]
            /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, bits, 
-                           slices, n, i, accumulator, domain, message >>
+                           slices, n, i, accumulator, ciphertext >>
 
 q(self) == Q(self)
 
@@ -496,8 +506,8 @@ CallI2LEOSP(self) == /\ pc[self] = "CallI2LEOSP"
                                                           \o stack[self]]
                      /\ pc' = [pc EXCEPT ![self] = "IntToLEOSP"]
                      /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
-                                     bits, slices, n, i, accumulator, domain, 
-                                     message, separator, message_bytes >>
+                                     bits, slices, n, i, accumulator, 
+                                     ciphertext, separator, message_bytes >>
 
 S(self) == /\ pc[self] = "S"
            /\ /\ message_bytes' = [message_bytes EXCEPT ![self] = bytes]
@@ -509,7 +519,7 @@ S(self) == /\ pc[self] = "S"
                                                    \o Tail(stack[self])]
            /\ pc' = [pc EXCEPT ![self] = "HashToPallas"]
            /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, bits, 
-                           slices, n, i, accumulator, domain, message >>
+                           slices, n, i, accumulator, ciphertext >>
 
 s(self) == CallI2LEOSP(self) \/ S(self)
 
@@ -523,8 +533,7 @@ HashToPallas(self) == /\ pc[self] = "HashToPallas"
                       /\ message_bytes' = [message_bytes EXCEPT ![self] = Head(stack[self]).message_bytes]
                       /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
                       /\ UNCHANGED << characters, bytes, auxiliar_bytes, bits, 
-                                      slices, n, i, accumulator, domain, 
-                                      message >>
+                                      slices, n, i, accumulator, ciphertext >>
 
 hash_to_pallas(self) == HashToPallas(self)
 
@@ -538,23 +547,19 @@ IntToLEOSP(self) == /\ pc[self] = "IntToLEOSP"
                     /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
                     /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
                     /\ UNCHANGED << point, characters, auxiliar_bytes, bits, 
-                                    slices, n, i, accumulator, domain, message, 
+                                    slices, n, i, accumulator, ciphertext, 
                                     separator, message_bytes >>
 
 IntToLEOSP32(self) == IntToLEOSP(self)
 
 SinSemillaHashCall == /\ pc["MAIN"] = "SinSemillaHashCall"
-                      /\ /\ domain' = [domain EXCEPT !["MAIN"] = <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>]
-                         /\ message' = [message EXCEPT !["MAIN"] = <<"m", "e", "s", "s", "a", "g", "e">>]
-                         /\ stack' = [stack EXCEPT !["MAIN"] = << [ procedure |->  "sinsemilla_hash",
-                                                                    pc        |->  "Done",
-                                                                    domain    |->  domain["MAIN"],
-                                                                    message   |->  message["MAIN"] ] >>
-                                                                \o stack["MAIN"]]
+                      /\ stack' = [stack EXCEPT !["MAIN"] = << [ procedure |->  "sinsemilla_hash",
+                                                                 pc        |->  "Done" ] >>
+                                                             \o stack["MAIN"]]
                       /\ pc' = [pc EXCEPT !["MAIN"] = "EncodeDomain"]
                       /\ UNCHANGED << point, characters, bytes, auxiliar_bytes, 
                                       bits, slices, n, i, accumulator, 
-                                      separator, message_bytes >>
+                                      ciphertext, separator, message_bytes >>
 
 main == SinSemillaHashCall
 
