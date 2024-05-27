@@ -103,7 +103,8 @@ begin
     bytes := <<point.a, point.b>>;
 end macro;
 
-\* The main procedure that hashes a message using the Sinsemilla hash function.
+\* The starting procedure that do all the conversion needed with the domain and message strings,
+\* call the main procedure to hash the message and decodes the resulting point coordinates to characters.
 procedure sinsemilla_hash(domain, message)
 begin
     \* Encode the domain characters as bytes and store them in auxiliar_bytes for later use.
@@ -129,8 +130,8 @@ begin
     return;
 end procedure;
 
-\* Convert the message bits into a Pallas point, using the domain bytes stored in bytes as the domain separator
-\* and the message bits stored in bits as the message.
+\* the main procedure convert the message bits into a Pallas point, using the domain bytes stored in bytes as the
+\* domain separator and the message bits stored in bits as the message.
 procedure sinsemilla_hash_to_point()
 begin
     CalculateN:
