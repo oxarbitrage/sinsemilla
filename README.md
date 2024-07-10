@@ -4,6 +4,8 @@ A haskell sinsemilla hash function implementation using [PastaCurves](https://gi
 
 This is experimental/proof of concept code.
 
+There is a [Sinsemilla TLA+ spec](https://github.com/oxarbitrage/sinsemilla/blob/main/spec/README.md) but this implementation is not following that specification yet as it was coded before the specification exist. The plan is to refactor the implementation to meet the spec. Progress for that will be tracked in https://github.com/oxarbitrage/sinsemilla/issues/1
+
 ## Demo
 
 ```bash
