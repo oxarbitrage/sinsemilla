@@ -80,6 +80,7 @@ begin
         state.slices := DivideInChunks(PadBits(state.bits, k), k);
     Q:
         \* Produce a Pallas point with the state `domain_bytes`.
+        \* TODO: This can be a precalculated value.
         state.point := HashToPallas(SinsemillaQ, state.domain_bytes);
     InitializeAcc:
         \* With the point we got from calling `q`, initialize the accumulator.
@@ -91,6 +92,7 @@ begin
         \* Loop over the slices.
         while state.i <= state.n do
             S:
+                \* TODO: This can be a value from a precalculated table.
                 state.point := HashToPallas(SinsemillaS, IntToLEOSP32(state.slices[state.i]));
             Accumulate:
                 \* Incomplete addition of the accumulator and the point.
@@ -107,21 +109,22 @@ end procedure;
 \* The main process encode/decode the message and call the sinsemilla hash procedure.
 fair process main = "MAIN"
 begin
-    \* Encode the domain characters as bytes and store them in `domain_bytes` for later use.
-    EncodeDomain:
-        state.domain_bytes := CharactersToBytes(SetToSeq(Domain));
-    \* Encode the message characters as bits and store them in `bits` for later use.
-    EncodeMessage:
-        state.bits := BytesToBits(CharactersToBytes(SetToSeq(Message)));
+    \* Encode the domain characters as bytes and store them in `domain_bytes` and encode the message characters as bits
+    \* and store them in `bits` for later use.
+    Encode:
+        state := [state EXCEPT
+            !.domain_bytes = CharactersToBytes(SetToSeq(Domain)),
+            !.bits = BytesToBits(CharactersToBytes(SetToSeq(Message)))
+        ];
     \* With the domain bytes in `bytes` and the message bits in `bits`, call the main procedure to hash the message.
     SinsemillaHashToPoint:
         call sinsemilla_hash_to_point();
     \* Decode the point coordinates to characters.
-    DecodeCipherText:
+    Decode:
         state.ciphertext := BytesToCharacters(<<state.point.a, state.point.b>>);
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "681b362" /\ chksum(tla) = "bc8312dc")
+\* BEGIN TRANSLATION (chksum(pcal) = "70c9344d" /\ chksum(tla) = "f24a507e")
 VARIABLES state, pc, stack
 
 (* define statement *)
@@ -185,7 +188,7 @@ Init == (* Global variables *)
                        ciphertext |-> <<"@", "@">>
                    ]
         /\ stack = [self \in ProcSet |-> << >>]
-        /\ pc = [self \in ProcSet |-> "EncodeDomain"]
+        /\ pc = [self \in ProcSet |-> "Encode"]
 
 Pad(self) == /\ pc[self] = "Pad"
              /\ state' = [state EXCEPT !.slices = DivideInChunks(PadBits(state.bits, k), k)]
@@ -237,30 +240,27 @@ sinsemilla_hash_to_point(self) == Pad(self) \/ Q(self)
                                      \/ S(self) \/ Accumulate(self)
                                      \/ AssignAccumulatorToPoint(self)
 
-EncodeDomain == /\ pc["MAIN"] = "EncodeDomain"
-                /\ state' = [state EXCEPT !.domain_bytes = CharactersToBytes(SetToSeq(Domain))]
-                /\ pc' = [pc EXCEPT !["MAIN"] = "EncodeMessage"]
-                /\ stack' = stack
-
-EncodeMessage == /\ pc["MAIN"] = "EncodeMessage"
-                 /\ state' = [state EXCEPT !.bits = BytesToBits(CharactersToBytes(SetToSeq(Message)))]
-                 /\ pc' = [pc EXCEPT !["MAIN"] = "SinsemillaHashToPoint"]
-                 /\ stack' = stack
+Encode == /\ pc["MAIN"] = "Encode"
+          /\ state' =          [state EXCEPT
+                          !.domain_bytes = CharactersToBytes(SetToSeq(Domain)),
+                          !.bits = BytesToBits(CharactersToBytes(SetToSeq(Message)))
+                      ]
+          /\ pc' = [pc EXCEPT !["MAIN"] = "SinsemillaHashToPoint"]
+          /\ stack' = stack
 
 SinsemillaHashToPoint == /\ pc["MAIN"] = "SinsemillaHashToPoint"
                          /\ stack' = [stack EXCEPT !["MAIN"] = << [ procedure |->  "sinsemilla_hash_to_point",
-                                                                    pc        |->  "DecodeCipherText" ] >>
+                                                                    pc        |->  "Decode" ] >>
                                                                 \o stack["MAIN"]]
                          /\ pc' = [pc EXCEPT !["MAIN"] = "Pad"]
                          /\ state' = state
 
-DecodeCipherText == /\ pc["MAIN"] = "DecodeCipherText"
-                    /\ state' = [state EXCEPT !.ciphertext = BytesToCharacters(<<state.point.a, state.point.b>>)]
-                    /\ pc' = [pc EXCEPT !["MAIN"] = "Done"]
-                    /\ stack' = stack
+Decode == /\ pc["MAIN"] = "Decode"
+          /\ state' = [state EXCEPT !.ciphertext = BytesToCharacters(<<state.point.a, state.point.b>>)]
+          /\ pc' = [pc EXCEPT !["MAIN"] = "Done"]
+          /\ stack' = stack
 
-main == EncodeDomain \/ EncodeMessage \/ SinsemillaHashToPoint
-           \/ DecodeCipherText
+main == Encode \/ SinsemillaHashToPoint \/ Decode
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
