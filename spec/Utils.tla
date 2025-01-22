@@ -535,6 +535,8 @@ BitSequenceToByte(bits) ==
         BitValue(0) + BitValue(1) + BitValue(2) + BitValue(3) +
         BitValue(4) + BitValue(5) + BitValue(6) + BitValue(7)
 
+Max(a, b) == IF a >= b THEN a ELSE b
+
 \* A flatten operator copied from https://github.com/tlaplus/CommunityModules/blob/master/modules/SequencesExt.tla
 FlattenSeq(seqs) ==
 (**************************************************************************)
