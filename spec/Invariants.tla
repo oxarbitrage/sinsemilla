@@ -20,5 +20,7 @@ SafetySlicesSequence(slices, k) ==
 SafetyMaxChunks(n, c) == n <= c
 \* Check that the ciphertext has the correct fixed size.
 SafetyCipherSize(ciphertext) == Len(ciphertext) = 2
+\* Check that the plaintext is not equal to the ciphertext.
+SafetyPlainIsNotCipherText(plain, cipher) == IF plain = cipher THEN FALSE ELSE TRUE
 
 ====
