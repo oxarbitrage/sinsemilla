@@ -624,5 +624,6 @@ HashToPallas(separator, message_bytes) == [
     b |-> CHOOSE r \in RandomSubset(1, 1..3) : TRUE
 ]
 
+CeilDiv(a, b) == IF a % b = 0 THEN a \div b ELSE (a \div b) + 1
 
 =============================================================================

@@ -87,7 +87,7 @@ begin
         state.accumulator := state.point;
     CalculateN:
         \* Calculate the number of slices needed to hash the message.
-        state.n := Max(Len(state.bits), k) \div k;
+        state.n := CeilDiv(Len(state.bits), k);
     MainLoop:
         \* Loop over the slices.
         while state.i <= state.n do
@@ -124,7 +124,7 @@ begin
         state.ciphertext := BytesToCharacters(<<state.point.a, state.point.b>>);
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "70c9344d" /\ chksum(tla) = "f24a507e")
+\* BEGIN TRANSLATION (chksum(pcal) = "89365060" /\ chksum(tla) = "cbdcf986")
 VARIABLES state, pc, stack
 
 (* define statement *)
@@ -206,7 +206,7 @@ InitializeAcc(self) == /\ pc[self] = "InitializeAcc"
                        /\ stack' = stack
 
 CalculateN(self) == /\ pc[self] = "CalculateN"
-                    /\ state' = [state EXCEPT !.n = Max(Len(state.bits), k) \div k]
+                    /\ state' = [state EXCEPT !.n = CeilDiv(Len(state.bits), k)]
                     /\ pc' = [pc EXCEPT ![self] = "MainLoop"]
                     /\ stack' = stack
 
