@@ -71,25 +71,6 @@ define
         /\ SafetyPlainIsNotCipherText(SetToSeq(Message), state.ciphertext)
 end define;
 
-\* The starting procedure that do all the conversion needed with the domain and message constants,
-\* call the main procedure to hash the message and decodes the resulting point coordinates to characters.
-procedure sinsemilla_hash()
-begin
-    \* Encode the domain characters as bytes and store them in `domain_bytes` for later use.
-    EncodeDomain:
-        state.domain_bytes := CharactersToBytes(SetToSeq(Domain));
-    \* Encode the message characters as bits and store them in `bits` for later use.
-    EncodeMessage:
-        state.bits := BytesToBits(CharactersToBytes(SetToSeq(Message)));
-    \* With the domain bytes in `bytes` and the message bits in `bits`, call the main procedure to hash the message.
-    SinsemillaHashToPoint:
-        call sinsemilla_hash_to_point();
-    \* Decode the point coordinates to characters.
-    DecodeCipherText:
-        state.ciphertext := BytesToCharacters(<<state.point.a, state.point.b>>);
-    return;
-end procedure;
-
 \* The main procedure convert the message bits into a Pallas point, using the domain bytes stored in `bytes` as the
 \* domain separator and the message bits stored in `bits` as the message.
 procedure sinsemilla_hash_to_point()
@@ -123,14 +104,24 @@ begin
     return;
 end procedure;
 
-\* Single process that calls the starting procedure.
+\* The main process encode/decode the message and call the sinsemilla hash procedure.
 fair process main = "MAIN"
 begin
-    SinSemillaHashCall:
-        call sinsemilla_hash();
+    \* Encode the domain characters as bytes and store them in `domain_bytes` for later use.
+    EncodeDomain:
+        state.domain_bytes := CharactersToBytes(SetToSeq(Domain));
+    \* Encode the message characters as bits and store them in `bits` for later use.
+    EncodeMessage:
+        state.bits := BytesToBits(CharactersToBytes(SetToSeq(Message)));
+    \* With the domain bytes in `bytes` and the message bits in `bits`, call the main procedure to hash the message.
+    SinsemillaHashToPoint:
+        call sinsemilla_hash_to_point();
+    \* Decode the point coordinates to characters.
+    DecodeCipherText:
+        state.ciphertext := BytesToCharacters(<<state.point.a, state.point.b>>);
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "f72bec9c" /\ chksum(tla) = "21ac1bf3")
+\* BEGIN TRANSLATION (chksum(pcal) = "681b362" /\ chksum(tla) = "bc8312dc")
 VARIABLES state, pc, stack
 
 (* define statement *)
@@ -194,33 +185,7 @@ Init == (* Global variables *)
                        ciphertext |-> <<"@", "@">>
                    ]
         /\ stack = [self \in ProcSet |-> << >>]
-        /\ pc = [self \in ProcSet |-> "SinSemillaHashCall"]
-
-EncodeDomain(self) == /\ pc[self] = "EncodeDomain"
-                      /\ state' = [state EXCEPT !.domain_bytes = CharactersToBytes(SetToSeq(Domain))]
-                      /\ pc' = [pc EXCEPT ![self] = "EncodeMessage"]
-                      /\ stack' = stack
-
-EncodeMessage(self) == /\ pc[self] = "EncodeMessage"
-                       /\ state' = [state EXCEPT !.bits = BytesToBits(CharactersToBytes(SetToSeq(Message)))]
-                       /\ pc' = [pc EXCEPT ![self] = "SinsemillaHashToPoint"]
-                       /\ stack' = stack
-
-SinsemillaHashToPoint(self) == /\ pc[self] = "SinsemillaHashToPoint"
-                               /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "sinsemilla_hash_to_point",
-                                                                        pc        |->  "DecodeCipherText" ] >>
-                                                                    \o stack[self]]
-                               /\ pc' = [pc EXCEPT ![self] = "Pad"]
-                               /\ state' = state
-
-DecodeCipherText(self) == /\ pc[self] = "DecodeCipherText"
-                          /\ state' = [state EXCEPT !.ciphertext = BytesToCharacters(<<state.point.a, state.point.b>>)]
-                          /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
-                          /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
-
-sinsemilla_hash(self) == EncodeDomain(self) \/ EncodeMessage(self)
-                            \/ SinsemillaHashToPoint(self)
-                            \/ DecodeCipherText(self)
+        /\ pc = [self \in ProcSet |-> "EncodeDomain"]
 
 Pad(self) == /\ pc[self] = "Pad"
              /\ state' = [state EXCEPT !.slices = DivideInChunks(PadBits(state.bits, k), k)]
@@ -272,28 +237,41 @@ sinsemilla_hash_to_point(self) == Pad(self) \/ Q(self)
                                      \/ S(self) \/ Accumulate(self)
                                      \/ AssignAccumulatorToPoint(self)
 
-SinSemillaHashCall == /\ pc["MAIN"] = "SinSemillaHashCall"
-                      /\ stack' = [stack EXCEPT !["MAIN"] = << [ procedure |->  "sinsemilla_hash",
-                                                                 pc        |->  "Done" ] >>
-                                                             \o stack["MAIN"]]
-                      /\ pc' = [pc EXCEPT !["MAIN"] = "EncodeDomain"]
-                      /\ state' = state
+EncodeDomain == /\ pc["MAIN"] = "EncodeDomain"
+                /\ state' = [state EXCEPT !.domain_bytes = CharactersToBytes(SetToSeq(Domain))]
+                /\ pc' = [pc EXCEPT !["MAIN"] = "EncodeMessage"]
+                /\ stack' = stack
 
-main == SinSemillaHashCall
+EncodeMessage == /\ pc["MAIN"] = "EncodeMessage"
+                 /\ state' = [state EXCEPT !.bits = BytesToBits(CharactersToBytes(SetToSeq(Message)))]
+                 /\ pc' = [pc EXCEPT !["MAIN"] = "SinsemillaHashToPoint"]
+                 /\ stack' = stack
+
+SinsemillaHashToPoint == /\ pc["MAIN"] = "SinsemillaHashToPoint"
+                         /\ stack' = [stack EXCEPT !["MAIN"] = << [ procedure |->  "sinsemilla_hash_to_point",
+                                                                    pc        |->  "DecodeCipherText" ] >>
+                                                                \o stack["MAIN"]]
+                         /\ pc' = [pc EXCEPT !["MAIN"] = "Pad"]
+                         /\ state' = state
+
+DecodeCipherText == /\ pc["MAIN"] = "DecodeCipherText"
+                    /\ state' = [state EXCEPT !.ciphertext = BytesToCharacters(<<state.point.a, state.point.b>>)]
+                    /\ pc' = [pc EXCEPT !["MAIN"] = "Done"]
+                    /\ stack' = stack
+
+main == EncodeDomain \/ EncodeMessage \/ SinsemillaHashToPoint
+           \/ DecodeCipherText
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
                /\ UNCHANGED vars
 
 Next == main
-           \/ (\E self \in ProcSet:  \/ sinsemilla_hash(self)
-                                     \/ sinsemilla_hash_to_point(self))
+           \/ (\E self \in ProcSet: sinsemilla_hash_to_point(self))
            \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
-        /\ /\ WF_vars(main)
-           /\ WF_vars(sinsemilla_hash("MAIN"))
-           /\ WF_vars(sinsemilla_hash_to_point("MAIN"))
+        /\ WF_vars(main) /\ WF_vars(sinsemilla_hash_to_point("MAIN"))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
