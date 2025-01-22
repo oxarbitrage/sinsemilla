@@ -6,7 +6,7 @@
 (* algorithm.                                                              *)
 (*                                                                         *)
 (***************************************************************************)
-EXTENDS TLC, Naturals, Integers, Sequences, Utils, Randomization
+EXTENDS TLC, Naturals, Integers, Sequences, Utils, Randomization, Invariants
 
 CONSTANT k, c, SinsemillaQ, SinsemillaS, Domain, Message
 
@@ -33,20 +33,18 @@ variables
     accumulator = [a |-> 0, b |-> 0];
     \* Holder for the ciphertext produced by the hash function.
     ciphertext = <<"@", "@">>;
+
 define
     \* The incomplete addition operator. Sums the x and y coordinates of two points on the Pallas curve.
     IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
-    \* Type invariants.
-    TypeInvariantPoint == point \in [a: Nat, b: Nat]
-    TypeInvariantCharacters == characters \in Seq(STRING)
-    TypeInvariantBytes == bytes \in Seq(Nat)
-    TypeInvariantAuxiliarBytes == bytes \in Seq(Nat)
-    TypeInvariantBits == bits \in Seq({0, 1})
-    TypeInvariantSlices == slices \in Seq(Seq({0, 1}))
     \* Check all type invariants.
-    InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes
-        /\ TypeInvariantBytes /\ TypeInvariantBits /\ TypeInvariantSlices
+    InvType == /\ TypeInvariantPoint(point) 
+        /\ TypeInvariantCharacters(characters)
+        /\ TypeInvariantBytes(bytes)
+        /\ TypeInvariantAuxiliarBytes(bytes)
+        /\ TypeInvariantBits(bits)
+        /\ TypeInvariantSlices(slices)
 
     \* Point holder will eventually end up with a point different than the starting one.
     LivenessPoint == <> (point # [a |-> 0, b |-> 0])
@@ -59,21 +57,17 @@ define
     \* Ciphertext should be produced.
     LivenessCipherValue == <> (ciphertext # <<"@", "@">>)
     \* Check all liveness properties.
-    Liveness == LivenessPoint /\ LivenessAccumulator /\ LivenessIndex /\ LivenessSlices /\ LivenessCipherValue
+    Liveness == /\ LivenessPoint
+        /\ LivenessAccumulator
+        /\ LivenessIndex
+        /\ LivenessSlices
+        /\ LivenessCipherValue
 
-    \* Bytes should always be a sequence of integers representing bytes.
-    SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A index \in 1..Len(bytes) : bytes[index] \in 0..255)
-    \* Slices should always be a sequence of sequences of bits and each slice should have no length greater than k.
-    \* We only can have a slice with length < than k when we are building the slices in the "PadLastSlice" label of the
-    \* pad procedure.
-    SafetySlicesSequence == 
-        /\ slices = <<>> \/ (\A index \in 1..Len(slices) : slices[index] \in Seq({0, 1}) /\ Len(slices[index]) <= k)
-    \* The number of slices should be less than or equal to the maximum number of chunks allowed.
-    SafetyMaxChunks == n <= c
-    \* Check that the ciphertext has the correct fixed size.
-    SafetyCipherSize == Len(ciphertext) = 2
-    \* Check all safety properties.
-    Safety == SafetyBytesSequence /\ SafetySlicesSequence /\ SafetyMaxChunks /\ SafetyCipherSize
+    \* Check all safety invariants.
+    Safety == /\ SafetyBytesSequence(bytes)
+        /\ SafetySlicesSequence(slices, k)
+        /\ SafetyMaxChunks(n, c)
+        /\ SafetyCipherSize(ciphertext)
 end define;
 
 \* Convert a sequence of characters to a sequence of bytes.
@@ -106,7 +100,6 @@ procedure sinsemilla_hash()
 begin
     \* Encode the domain characters as bytes and store them in `auxiliar_bytes` for later use.
     EncodeDomain:
-        print Domain;
         characters := SetToSeq(Domain);
         characters_to_bytes();
         auxiliar_bytes := bytes;
@@ -190,7 +183,6 @@ begin
     CallI2LEOSP:
         call IntToLEOSP32();
     S:
-        print bytes;
         \* TODO:
         call hash_to_pallas(SinsemillaS, bytes);
     return;
@@ -236,7 +228,7 @@ begin
         call sinsemilla_hash();
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "8858f2b5" /\ chksum(tla) = "30c79131")
+\* BEGIN TRANSLATION (chksum(pcal) = "3c4c4b3f" /\ chksum(tla) = "a50d805")
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, n, i, 
           accumulator, ciphertext, pc, stack
@@ -245,15 +237,12 @@ VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, n, i,
 IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
 
-TypeInvariantPoint == point \in [a: Nat, b: Nat]
-TypeInvariantCharacters == characters \in Seq(STRING)
-TypeInvariantBytes == bytes \in Seq(Nat)
-TypeInvariantAuxiliarBytes == bytes \in Seq(Nat)
-TypeInvariantBits == bits \in Seq({0, 1})
-TypeInvariantSlices == slices \in Seq(Seq({0, 1}))
-
-InvType == TypeInvariantPoint /\ TypeInvariantCharacters /\ TypeInvariantBytes
-    /\ TypeInvariantBytes /\ TypeInvariantBits /\ TypeInvariantSlices
+InvType == /\ TypeInvariantPoint(point)
+    /\ TypeInvariantCharacters(characters)
+    /\ TypeInvariantBytes(bytes)
+    /\ TypeInvariantAuxiliarBytes(bytes)
+    /\ TypeInvariantBits(bits)
+    /\ TypeInvariantSlices(slices)
 
 
 LivenessPoint == <> (point # [a |-> 0, b |-> 0])
@@ -266,21 +255,17 @@ LivenessSlices == <> (Len(slices) > 0)
 
 LivenessCipherValue == <> (ciphertext # <<"@", "@">>)
 
-Liveness == LivenessPoint /\ LivenessAccumulator /\ LivenessIndex /\ LivenessSlices /\ LivenessCipherValue
+Liveness == /\ LivenessPoint
+    /\ LivenessAccumulator
+    /\ LivenessIndex
+    /\ LivenessSlices
+    /\ LivenessCipherValue
 
 
-SafetyBytesSequence ==  /\ bytes = <<>> \/ (\A index \in 1..Len(bytes) : bytes[index] \in 0..255)
-
-
-
-SafetySlicesSequence ==
-    /\ slices = <<>> \/ (\A index \in 1..Len(slices) : slices[index] \in Seq({0, 1}) /\ Len(slices[index]) <= k)
-
-SafetyMaxChunks == n <= c
-
-SafetyCipherSize == Len(ciphertext) = 2
-
-Safety == SafetyBytesSequence /\ SafetySlicesSequence /\ SafetyMaxChunks /\ SafetyCipherSize
+Safety == /\ SafetyBytesSequence(bytes)
+    /\ SafetySlicesSequence(slices, k)
+    /\ SafetyMaxChunks(n, c)
+    /\ SafetyCipherSize(ciphertext)
 
 VARIABLES paddedBits, separator, message_bytes
 
@@ -310,7 +295,6 @@ Init == (* Global variables *)
         /\ pc = [self \in ProcSet |-> "SinSemillaHashCall"]
 
 EncodeDomain(self) == /\ pc[self] = "EncodeDomain"
-                      /\ PrintT(Domain)
                       /\ characters' = SetToSeq(Domain)
                       /\ bytes' = [char \in 1..Len(characters') |-> Ord(characters'[char])]
                       /\ auxiliar_bytes' = bytes'
@@ -469,7 +453,6 @@ CallI2LEOSP(self) == /\ pc[self] = "CallI2LEOSP"
                                      message_bytes >>
 
 S(self) == /\ pc[self] = "S"
-           /\ PrintT(bytes)
            /\ /\ message_bytes' = [message_bytes EXCEPT ![self] = bytes]
               /\ separator' = [separator EXCEPT ![self] = SinsemillaS]
               /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "hash_to_pallas",
