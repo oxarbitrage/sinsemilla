@@ -8,6 +8,8 @@
 (***************************************************************************)
 EXTENDS TLC, Naturals, Integers, Sequences, Utils, Randomization
 
+CONSTANT k, c, SinsemillaQ, SinsemillaS, Domain, Message
+
 (*--algorithm sinsemilla
 
 variables
@@ -32,21 +34,6 @@ variables
     \* Holder for the ciphertext produced by the hash function.
     ciphertext = <<"@", "@">>;
 define
-    \* The number of bits in a chunk.
-    k == 10
-    \* The maximum number of chunks allowed.
-    c == 253
-    \* The domain separator string for the Q point: "z.cash.SinsemillaQ".
-    SinsemillaQ == 
-        << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
-    \* The domain separator string for the S point: "z.cash.SinsemillaS".
-    SinsemillaS == 
-        << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
-    \* A fixed domain to be used to hash the message.
-    Domain == <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>
-    \* A fixed message to be hashed.
-    Message == <<"m", "e", "s", "s">>
-
     \* The incomplete addition operator. Sums the x and y coordinates of two points on the Pallas curve.
     IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
@@ -119,12 +106,13 @@ procedure sinsemilla_hash()
 begin
     \* Encode the domain characters as bytes and store them in `auxiliar_bytes` for later use.
     EncodeDomain:
-        characters := Domain;
+        print Domain;
+        characters := SetToSeq(Domain);
         characters_to_bytes();
         auxiliar_bytes := bytes;
     \* Encode the message characters as bits and store them in `bits` for later use.
     EncodeMessage:
-        characters := Message;
+        characters := SetToSeq(Message);
         characters_to_bytes();
         bytes_to_bits();
     \* With the domain bytes in `bytes` and the message bits in `bits`, call the main procedure to hash the message.
@@ -202,6 +190,8 @@ begin
     CallI2LEOSP:
         call IntToLEOSP32();
     S:
+        print bytes;
+        \* TODO:
         call hash_to_pallas(SinsemillaS, bytes);
     return;
 end procedure;
@@ -246,27 +236,12 @@ begin
         call sinsemilla_hash();
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "923ff5fc" /\ chksum(tla) = "b59f84d5")
+\* BEGIN TRANSLATION (chksum(pcal) = "8858f2b5" /\ chksum(tla) = "30c79131")
 CONSTANT defaultInitValue
 VARIABLES point, characters, bytes, auxiliar_bytes, bits, slices, n, i, 
           accumulator, ciphertext, pc, stack
 
 (* define statement *)
-k == 10
-
-c == 253
-
-SinsemillaQ ==
-    << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "Q" >>
-
-SinsemillaS ==
-    << "z", ".", "c", "a", "s", "h", ".", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a", "S" >>
-
-Domain == <<"t", "e", "s", "t", " ", "S", "i", "n", "s", "e", "m", "i", "l", "l", "a">>
-
-Message == <<"m", "e", "s", "s">>
-
-
 IncompleteAddition(x, y) == [a |-> x.a + y.a, b |-> x.b + y.b]
 
 
@@ -335,7 +310,8 @@ Init == (* Global variables *)
         /\ pc = [self \in ProcSet |-> "SinSemillaHashCall"]
 
 EncodeDomain(self) == /\ pc[self] = "EncodeDomain"
-                      /\ characters' = Domain
+                      /\ PrintT(Domain)
+                      /\ characters' = SetToSeq(Domain)
                       /\ bytes' = [char \in 1..Len(characters') |-> Ord(characters'[char])]
                       /\ auxiliar_bytes' = bytes'
                       /\ pc' = [pc EXCEPT ![self] = "EncodeMessage"]
@@ -344,7 +320,7 @@ EncodeDomain(self) == /\ pc[self] = "EncodeDomain"
                                       message_bytes >>
 
 EncodeMessage(self) == /\ pc[self] = "EncodeMessage"
-                       /\ characters' = Message
+                       /\ characters' = SetToSeq(Message)
                        /\ bytes' = [char \in 1..Len(characters') |-> Ord(characters'[char])]
                        /\ bits' = FlattenSeq([byte \in 1..Len(bytes') |-> ByteToBitSequence(bytes'[byte])])
                        /\ pc' = [pc EXCEPT ![self] = "SinsemillaHashToPoint"]
@@ -493,6 +469,7 @@ CallI2LEOSP(self) == /\ pc[self] = "CallI2LEOSP"
                                      message_bytes >>
 
 S(self) == /\ pc[self] = "S"
+           /\ PrintT(bytes)
            /\ /\ message_bytes' = [message_bytes EXCEPT ![self] = bytes]
               /\ separator' = [separator EXCEPT ![self] = SinsemillaS]
               /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "hash_to_pallas",
