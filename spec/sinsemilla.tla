@@ -1,9 +1,12 @@
 ---- MODULE sinsemilla ----
 (***************************************************************************)
-(* Sinsemilla hash function specification                                  *)
+(* Sinsemilla hash function spec.                                          *)
 (*                                                                         *)
-(* Specifies what is needed to implement a sinsemilla hash function        *)
-(* algorithm.                                                              *)
+(* Specifies the Sinsemilla hash function algorithm.                       *)
+(*                                                                         *)
+(* All variables defined represent the state of the algorithm at any given *)
+(* time. The algorithm is composed of a single process that hashes a       *)
+(* message using the Sinsemilla hash function and predefined constants.    *)
 (*                                                                         *)
 (***************************************************************************)
 EXTENDS TLC, Naturals, Integers, Sequences, Utils, Invariants
@@ -32,12 +35,14 @@ variables
     \* The bytes of the ciphertext.
     ciphertext_bytes = <<0, 0>>
 define
+    \* The type invariant.
     TypeInvariant == /\ IsBytes(plaintext_bytes) /\ IsBytes(domain_bytes) /\ IsBits(plaintext_bits)
         /\ IsSlices(plaintext_slices) /\ IsPoint(point_q)  /\ IsPoint(accumulator) /\ IsNumber(n)
         /\ IsPoint(point_s) /\ IsBytes(ciphertext_bytes)
-    Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0])
-                /\ <> (point_s # [a |-> 0, b |-> 0])
-                /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
+    \* The liveness properties.
+    Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0]) /\ <> (point_s # [a |-> 0, b |-> 0])
+        /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
+    \* The safety invariants.
     Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes) /\ SlicesSequence(plaintext_slices, k)
         /\ MaxChunks(n, c) /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
 end define;
@@ -60,7 +65,7 @@ begin
         ciphertext_bytes := <<accumulator.a, accumulator.b>>;
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "584e56ff" /\ chksum(tla) = "c5ecae7b")
+\* BEGIN TRANSLATION (chksum(pcal) = "61cbdc3d" /\ chksum(tla) = "e70b7a5d")
 VARIABLES plaintext_bytes, domain_bytes, plaintext_bits, plaintext_slices, 
           point_q, accumulator, n, point_s, ciphertext_bytes, pc
 
@@ -68,9 +73,10 @@ VARIABLES plaintext_bytes, domain_bytes, plaintext_bits, plaintext_slices,
 TypeInvariant == /\ IsBytes(plaintext_bytes) /\ IsBytes(domain_bytes) /\ IsBits(plaintext_bits)
     /\ IsSlices(plaintext_slices) /\ IsPoint(point_q)  /\ IsPoint(accumulator) /\ IsNumber(n)
     /\ IsPoint(point_s) /\ IsBytes(ciphertext_bytes)
-Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0])
-            /\ <> (point_s # [a |-> 0, b |-> 0])
-            /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
+
+Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0]) /\ <> (point_s # [a |-> 0, b |-> 0])
+    /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
+
 Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes) /\ SlicesSequence(plaintext_slices, k)
     /\ MaxChunks(n, c) /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
 

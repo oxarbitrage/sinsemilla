@@ -1,4 +1,10 @@
 -------------------------------- MODULE Utils -------------------------------
+(***************************************************************************)
+(* Utility functiuons used by the sinsemilla hash algorithm, they          *)
+(* represent either functions that can probably be found in programming    *)
+(* languages or functions that are specific to the sinsemilla hash         *)
+(* algorithm that need to be coded.                                        *)
+(***************************************************************************)
 EXTENDS CharUtils, Community
 LOCAL INSTANCE Sequences
 LOCAL INSTANCE Naturals

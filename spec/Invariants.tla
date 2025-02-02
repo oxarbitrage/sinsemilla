@@ -1,4 +1,10 @@
 ---- MODULE Invariants ----
+(***************************************************************************)
+(* Invariants used by the sinsemilla hash algorithm.                       *)
+(*                                                                         *)
+(* This module contains the invariants used by the sinsemilla hash         *)
+(* algorithm.                                                              *)
+(***************************************************************************)
 EXTENDS TLC, Naturals, Integers, Sequences
 
 \* Type invariants.

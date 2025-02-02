@@ -1,12 +1,16 @@
--------------------------------- MODULE Community -------------------------------
+-------------------------------- MODULE Community --------------------------
+(**************************************************************************)
+(* Imported stuff from the community modules imported stuff.              *)
+(* https://github.com/tlaplus/CommunityModules/                           *)
+(*                                                                        *)
+(* This module contains operators and definitions that are used across    *)
+(* different modules.                                                     *)
+(***************************************************************************)
 LOCAL INSTANCE Sequences
 LOCAL INSTANCE Naturals
 LOCAL INSTANCE FiniteSets
 LOCAL INSTANCE Randomization
 
-\* Community modules imported stuff
-
-\* A flatten operator copied from https://github.com/tlaplus/CommunityModules/blob/master/modules/SequencesExt.tla
 FlattenSeq(seqs) ==
 (**************************************************************************)
 (* A sequence of all elements from all sequences in the sequence  seqs  . *)
@@ -46,4 +50,4 @@ SetToSeq(S) ==
 (**************************************************************************)
 CHOOSE f \in [1..Cardinality(S) -> S] : IsInjective(f)
 
-=================================================================================
+============================================================================
