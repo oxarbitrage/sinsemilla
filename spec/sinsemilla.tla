@@ -32,32 +32,14 @@ variables
     \* The bytes of the ciphertext.
     ciphertext_bytes = <<0, 0>>
 define
-    \* Check all type invariants.
-    TypeInvariant == /\ IsBytes(plaintext_bytes) 
-        /\ IsBytes(domain_bytes)
-        /\ IsBits(plaintext_bits)
-        /\ IsSlices(plaintext_slices)
-        /\ IsPoint(point_q)
-        /\ IsPoint(accumulator)
-        /\ IsNumber(n)
-        /\ IsPoint(point_s)
-        /\ IsBytes(ciphertext_bytes)
-    \* Accumulator accumulates.
-    LivenessAccumulator == <> (accumulator # [a |-> 0, b |-> 0])
-    \* The point S should eventually be different from the neutral element.
-    LivenessS == <> (point_s # [a |-> 0, b |-> 0])
-    \* The ciphertext should be the result of the hash function.
-    LivenessCiphertext == <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
-    \* Check all liveness properties.
-    Liveness == /\ LivenessAccumulator
-        /\ LivenessS
-        /\ LivenessCiphertext
-    \* Check all safety invariants.
-    Safety == /\ BytesSequence(plaintext_bytes)
-        /\ BytesSequence(domain_bytes)
-        /\ SlicesSequence(plaintext_slices, k)
-        /\ MaxChunks(n, c)
-        /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
+    TypeInvariant == /\ IsBytes(plaintext_bytes) /\ IsBytes(domain_bytes) /\ IsBits(plaintext_bits)
+        /\ IsSlices(plaintext_slices) /\ IsPoint(point_q)  /\ IsPoint(accumulator) /\ IsNumber(n)
+        /\ IsPoint(point_s) /\ IsBytes(ciphertext_bytes)
+    Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0])
+                /\ <> (point_s # [a |-> 0, b |-> 0])
+                /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
+    Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes) /\ SlicesSequence(plaintext_slices, k)
+        /\ MaxChunks(n, c) /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
 end define;
 
 \* The main process hash a given message using the Sinsemilla hash function. 
@@ -78,36 +60,19 @@ begin
         ciphertext_bytes := <<accumulator.a, accumulator.b>>;
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "f1a52f70" /\ chksum(tla) = "dd539d04")
+\* BEGIN TRANSLATION (chksum(pcal) = "584e56ff" /\ chksum(tla) = "c5ecae7b")
 VARIABLES plaintext_bytes, domain_bytes, plaintext_bits, plaintext_slices, 
           point_q, accumulator, n, point_s, ciphertext_bytes, pc
 
 (* define statement *)
-TypeInvariant == /\ IsBytes(plaintext_bytes)
-    /\ IsBytes(domain_bytes)
-    /\ IsBits(plaintext_bits)
-    /\ IsSlices(plaintext_slices)
-    /\ IsPoint(point_q)
-    /\ IsPoint(accumulator)
-    /\ IsNumber(n)
-    /\ IsPoint(point_s)
-    /\ IsBytes(ciphertext_bytes)
-
-LivenessAccumulator == <> (accumulator # [a |-> 0, b |-> 0])
-
-LivenessS == <> (point_s # [a |-> 0, b |-> 0])
-
-LivenessCiphertext == <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
-
-Liveness == /\ LivenessAccumulator
-    /\ LivenessS
-    /\ LivenessCiphertext
-
-Safety == /\ BytesSequence(plaintext_bytes)
-    /\ BytesSequence(domain_bytes)
-    /\ SlicesSequence(plaintext_slices, k)
-    /\ MaxChunks(n, c)
-    /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
+TypeInvariant == /\ IsBytes(plaintext_bytes) /\ IsBytes(domain_bytes) /\ IsBits(plaintext_bits)
+    /\ IsSlices(plaintext_slices) /\ IsPoint(point_q)  /\ IsPoint(accumulator) /\ IsNumber(n)
+    /\ IsPoint(point_s) /\ IsBytes(ciphertext_bytes)
+Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0])
+            /\ <> (point_s # [a |-> 0, b |-> 0])
+            /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
+Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes) /\ SlicesSequence(plaintext_slices, k)
+    /\ MaxChunks(n, c) /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
 
 VARIABLE i
 
