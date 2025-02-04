@@ -33,17 +33,12 @@ sinsemillaHashToPoint :: [Word8] -> [Bool] -> Maybe Pallas
 sinsemillaHashToPoint d m
     | Prelude.length m > k * c = Nothing
     | otherwise =
-        let initialAcc = Just (q d)
-        in Prelude.foldl (\acc chunk -> do
-                incompleteAddition
-                    (incompleteAddition
-                        acc
-                        (Just (s (fill chunk)))
-                    )
-                    acc
-            )
-            initialAcc
-            (chunksOf k m)
+        let point_q = Just (q d)
+        in Prelude.foldl (\accumulator chunk -> do
+            let point_s = Just (s (fill chunk))
+            incompleteAddition (incompleteAddition accumulator point_s) accumulator
+        )
+        point_q (chunksOf k m)
 
 -- The function reverses and converts the hashed point to a byte array.
 sinsemillaHash :: [Word8] -> [Bool] -> [Word8]
