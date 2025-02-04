@@ -43,8 +43,9 @@ define
     Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0]) /\ <> (point_s # [a |-> 0, b |-> 0])
         /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
     \* The safety invariants.
-    Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes) /\ SlicesSequence(plaintext_slices, k)
-        /\ MaxChunks(n, c) /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
+    Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes)
+        /\ SlicesSequence(plaintext_slices, k) /\ MaxChunks(n, c)
+        /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
 end define;
 
 \* The main process hash a given message using the Sinsemilla hash function. 
@@ -65,9 +66,9 @@ begin
         ciphertext_bytes := <<accumulator.a, accumulator.b>>;
 end process;
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "61cbdc3d" /\ chksum(tla) = "e70b7a5d")
-VARIABLES plaintext_bytes, domain_bytes, plaintext_bits, plaintext_slices, 
-          point_q, accumulator, n, point_s, ciphertext_bytes, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "4507b428" /\ chksum(tla) = "f7ed0fa5")
+VARIABLES pc, plaintext_bytes, domain_bytes, plaintext_bits, plaintext_slices, 
+          point_q, accumulator, n, point_s, ciphertext_bytes
 
 (* define statement *)
 TypeInvariant == /\ IsBytes(plaintext_bytes) /\ IsBytes(domain_bytes) /\ IsBits(plaintext_bits)
@@ -77,13 +78,15 @@ TypeInvariant == /\ IsBytes(plaintext_bytes) /\ IsBytes(domain_bytes) /\ IsBits(
 Liveness == /\ <> (accumulator # [a |-> 0, b |-> 0]) /\ <> (point_s # [a |-> 0, b |-> 0])
     /\ <> (plaintext_bytes # ciphertext_bytes /\ ciphertext_bytes # <<0, 0>>)
 
-Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes) /\ SlicesSequence(plaintext_slices, k)
-    /\ MaxChunks(n, c) /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
+Safety == /\ BytesSequence(plaintext_bytes) /\ BytesSequence(domain_bytes)
+    /\ SlicesSequence(plaintext_slices, k) /\ MaxChunks(n, c)
+    /\ PlainIsNotCipherText(plaintext_bytes, ciphertext_bytes)
 
 VARIABLE i
 
-vars == << plaintext_bytes, domain_bytes, plaintext_bits, plaintext_slices, 
-           point_q, accumulator, n, point_s, ciphertext_bytes, pc, i >>
+vars == << pc, plaintext_bytes, domain_bytes, plaintext_bits, 
+           plaintext_slices, point_q, accumulator, n, point_s, 
+           ciphertext_bytes, i >>
 
 ProcSet == {"MAIN"}
 

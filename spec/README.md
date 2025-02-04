@@ -9,12 +9,10 @@ The Sinsemilla hash function is normatively specified in the [Sinsemilla Hash Fu
 There are three known implementations used in production, although there might be more:
 
 - The [Zebra implementation](https://github.com/ZcashFoundation/zebra/blob/v2.0.0/zebra-chain/src/orchard/sinsemilla.rs): Used in Zebra only for verification.
-- The [Zcash implementation](https://github.com/zcash/sinsemilla)
-- The [Halo2 gadget implementation](https://github.com/zcash/halo2/blob/halo2_proofs-0.3.0/halo2_gadgets/src/sinsemilla.rs): Designed for efficiency within circuits.
+- The [Zcash implementation](https://github.com/zcash/sinsemilla): Sinsemilla primitives.
+- The [Halo2 gadget implementation](https://github.com/zcash/halo2/blob/halo2_gadgets-0.3.0/halo2_gadgets/src/sinsemilla.rs): Designed for efficiency within circuits, it uses the Zcash implementation as a dependency.
 
-All of them are written in Rust and produce the same hash output. The Halo2 implementation is more efficient by design within circuits, whereas the Zebra implementation and Zcash implementation, used outside any circuit context, is less efficient but secure.
-
-Any Sinsemilla hash function implementation depends on Pallas elliptic curve operations, specifically converting bytes into valid Pallas points, adding points, and converting back from a valid point into bytes. The [Pasta Curves](https://github.com/zcash/pasta_curves) library is well-known for this in Rust and is a dependency in the mentioned implementations.
+A Sinsemilla hash function implementation depends on Pallas elliptic curve operations, specifically converting bytes into valid Pallas points, adding points, and converting back from a valid point into bytes. The [Pasta Curves](https://github.com/zcash/pasta_curves) library is well-known for this in Rust and is a dependency in the mentioned implementations.
 
 Our goal is to provide a specification that aids in understanding the requirements for implementing the Sinsemilla hash function in any programming language with a Pasta Curves library. For Haskell, there is a similar [Haskell Pasta Curves library](https://github.com/nccgroup/pasta-curves), and we will use this specification to build a Haskell version of the Sinsemilla hash function.
 
