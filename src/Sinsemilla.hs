@@ -16,6 +16,12 @@ import Data.Word
 import Data.Maybe (fromJust)
 import Data.Bits ((.|.), shiftL)
 
+k :: Int
+k = 10
+
+c :: Int
+c = 253
+
 -- | Performs incomplete point addition on two points on the Pallas curve.
 incompleteAddition :: Maybe Pallas -> Maybe Pallas -> Maybe Pallas
 incompleteAddition left right = case (left, right) of
@@ -24,27 +30,20 @@ incompleteAddition left right = case (left, right) of
 
 -- | Converts a byte array and a message to a point on the Pallas curve.
 sinsemillaHashToPoint :: [Word8] -> [Bool] -> Maybe Pallas
-sinsemillaHashToPoint d m = do
-    let k = 10
-        c = 253
-    if Prelude.length m <= k * c
-    then
+sinsemillaHashToPoint d m
+    | Prelude.length m > k * c = Nothing
+    | otherwise =
         let initialAcc = Just (q d)
-        in Prelude.foldl
-            (\currentAcc chunk ->
-                let updatedAcc = 
-                        incompleteAddition 
-                            (incompleteAddition
-                                currentAcc
-                                (Just (s (Prelude.take k (chunk ++ repeat False))))
-                            )
-                            currentAcc
-                in updatedAcc
+        in Prelude.foldl (\acc chunk -> do
+                incompleteAddition
+                    (incompleteAddition
+                        acc
+                        (Just (s (fill chunk)))
+                    )
+                    acc
             )
-        initialAcc
-        (chunksOf k m)
-    else
-      Nothing
+            initialAcc
+            (chunksOf k m)
 
 -- The function reverses and converts the hashed point to a byte array.
 sinsemillaHash :: [Word8] -> [Bool] -> [Word8]
@@ -76,6 +75,9 @@ padToMultipleOf8 bits =
     in bits ++ replicate padding False
 
 -- | Splits a list into chunks of a specified size.
-chunksOf :: Int -> [a] -> [[a]]
+chunksOf :: Int -> [Bool] -> [[Bool]]
 chunksOf _ [] = []
 chunksOf n xs = take n xs : chunksOf n (drop n xs)
+
+fill :: [Bool] -> [Bool]
+fill chunk = take k (chunk ++ repeat False)
